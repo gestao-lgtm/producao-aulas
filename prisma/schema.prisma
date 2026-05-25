@@ -1,0 +1,354 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  COORDENADORA
+  ASSISTENTE_EDITORIAL
+  REVISOR
+  VISUALIZADOR
+}
+
+enum LessonStatus {
+  RASCUNHO
+  EM_PRODUCAO
+  AGUARDANDO_REVISAO
+  REVISANDO
+  CONCLUIDA
+  PUBLICADA
+}
+
+enum StepStatus {
+  NAO_INICIADA
+  EM_ANDAMENTO
+  AGUARDANDO_APROVACAO
+  REPROVADA
+  EM_CORRECAO
+  APROVADA
+  BLOQUEADA
+}
+
+enum StepKey {
+  CADASTRO
+  SELECAO_QUESTOES
+  CADERNOS_QUESTOES
+  PREPARACAO_EDITORIAL
+  PRODUCAO_TEORIA
+  PADRONIZACAO_EDITORIAL
+  COMENTARIOS_QUESTOES
+  MONTAGEM_PDFS
+  SLIDES
+  REVISAO_HUMANA
+  GRAVACAO
+  PUBLICACAO
+}
+
+enum QuestionStatus {
+  PENDENTE
+  APROVADA
+  DESCARTADA
+  PROBLEMATICA
+}
+
+enum QuestionBoard {
+  CEBRASPE
+  FGV
+  FCC
+  VUNESP
+  CESPE
+  OUTROS
+}
+
+enum FileType {
+  TEORIA_BRUTA
+  TEORIA_EDITADA
+  TEORIA_PDF
+  QUESTOES_BRUTAS
+  QUESTOES_EDITORIAL
+  QUESTOES_COMENTADAS
+  CADERNO_GERAL
+  CADERNO_TOPICO
+  CADERNO_BANCA
+  REVISAO
+  SLIDES
+  GABARITO
+  AUXILIAR_TEORIA
+  LISTA_QUESTOES
+  PACOTE_PUBLICACAO
+  OUTRO
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      UserRole @default(ASSISTENTE_EDITORIAL)
+  avatarUrl String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  approvals WorkflowStep[] @relation("ApprovedBy")
+  feedbacks Feedback[]
+  auditLogs AuditLog[]
+  stepRuns  StepRun[]      @relation("CreatedBy")
+}
+
+model Course {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  disciplines Discipline[]
+}
+
+model Discipline {
+  id          String   @id @default(cuid())
+  courseId    String
+  name        String
+  code        String?
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+}
+
+model Lesson {
+  id               String       @id @default(cuid())
+  disciplineId     String
+  code             String       @unique
+  title            String
+  subtitle         String?
+  position         Int
+  scope            String?      @db.Text
+  outOfScope       String?      @db.Text
+  targetPages      Int?
+  priorityBoards   String[]     @default([])
+  studentProfile   String?      @db.Text
+  depthLevel       String?
+  pedagogicalNotes String?      @db.Text
+  status           LessonStatus @default(RASCUNHO)
+  estimatedHours   Float?
+  completedAt      DateTime?
+  publishedAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  discipline    Discipline     @relation(fields: [disciplineId], references: [id])
+  topics        LessonTopic[]
+  workflowSteps WorkflowStep[]
+  questions     Question[]
+  files         File[]
+  memory        LessonMemory?
+}
+
+model LessonTopic {
+  id          String   @id @default(cuid())
+  lessonId    String
+  title       String
+  order       Int
+  description String?  @db.Text
+  subtopics   String[] @default([])
+  createdAt   DateTime @default(now())
+
+  lesson    Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  questions Question[]
+}
+
+model LessonMemory {
+  id               String   @id @default(cuid())
+  lessonId         String   @unique
+  approvedTerms    Json     @default("{}")
+  centralConcepts  Json     @default("[]")
+  sensitiveTopics  Json     @default("[]")
+  tricks           Json     @default("[]")
+  styleUsed        String?  @db.Text
+  appliedFeedbacks Json     @default("[]")
+  problematicQs    Json     @default("[]")
+  specificRules    Json     @default("[]")
+  updatedAt        DateTime @updatedAt
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+}
+
+model WorkflowStep {
+  id           String     @id @default(cuid())
+  lessonId     String
+  stepKey      StepKey
+  title        String
+  description  String?    @db.Text
+  status       StepStatus @default(NAO_INICIADA)
+  order        Int
+  isManual     Boolean    @default(false)
+  isAiEnabled  Boolean    @default(true)
+  approvedAt   DateTime?
+  approvedById String?
+  blockedBy    String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  lesson     Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  approvedBy User?      @relation("ApprovedBy", fields: [approvedById], references: [id])
+  stepRuns   StepRun[]
+  files      File[]
+}
+
+model StepRun {
+  id             String     @id @default(cuid())
+  workflowStepId String
+  version        Int        @default(1)
+  input          Json?
+  output         Json?
+  outputText     String?    @db.Text
+  status         StepStatus @default(EM_ANDAMENTO)
+  aiProvider     String?
+  aiModel        String?
+  promptUsed     String?    @db.Text
+  tokensUsed     Int?
+  createdById    String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  workflowStep WorkflowStep @relation(fields: [workflowStepId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("CreatedBy", fields: [createdById], references: [id])
+  feedbacks    Feedback[]
+}
+
+model Feedback {
+  id           String   @id @default(cuid())
+  stepRunId    String
+  userId       String
+  feedbackText String   @db.Text
+  whatIsWrong  String?  @db.Text
+  whatToChange String?  @db.Text
+  examples     String?  @db.Text
+  urgency      Int      @default(2)
+  attachments  Json     @default("[]")
+  createdAt    DateTime @default(now())
+
+  stepRun StepRun @relation(fields: [stepRunId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+}
+
+model Question {
+  id            String         @id @default(cuid())
+  lessonId      String
+  topicId       String?
+  board         QuestionBoard  @default(OUTROS)
+  year          Int?
+  institution   String?
+  role          String?
+  externalId    String?
+  statement     String         @db.Text
+  alternatives  Json           @default("[]")
+  answer        String?
+  answerKey     String?
+  source        String?
+  relevanceScore Float         @default(0)
+  isStarred     Boolean        @default(false)
+  status        QuestionStatus @default(PENDENTE)
+  hasImage      Boolean        @default(false)
+  isAnnullable  Boolean        @default(false)
+  discardReason String?
+  order         Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  lesson   Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  topic    LessonTopic?  @relation(fields: [topicId], references: [id])
+  comments QuestionComment[]
+}
+
+model QuestionComment {
+  id            String   @id @default(cuid())
+  questionId    String
+  version       Int      @default(1)
+  resolution    String   @db.Text
+  correction    String?  @db.Text
+  theoryExcerpt String?  @db.Text
+  finalAnswer   String
+  notes         String?  @db.Text
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model File {
+  id             String    @id @default(cuid())
+  lessonId       String
+  workflowStepId String?
+  fileType       FileType
+  name           String
+  url            String?
+  content        String?   @db.Text
+  version        Int       @default(1)
+  isActive       Boolean   @default(true)
+  mimeType       String?
+  sizeBytes      Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  lesson       Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  workflowStep WorkflowStep? @relation(fields: [workflowStepId], references: [id])
+}
+
+model EditorialStandard {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  configJson Json     @default("{}")
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model PromptTemplate {
+  id        String   @id @default(cuid())
+  stepKey   StepKey
+  name      String
+  prompt    String   @db.Text
+  version   Int      @default(1)
+  active    Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AIConfig {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  provider    String
+  model       String
+  apiKey      String?
+  temperature Float    @default(0.3)
+  maxTokens   Int      @default(4000)
+  isDefault   Boolean  @default(false)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}
