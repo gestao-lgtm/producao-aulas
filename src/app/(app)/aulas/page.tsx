@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/prisma";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,36 @@ import { mockLessons } from "@/lib/mock/data";
 import { BookOpen, Plus, Star, ChevronRight, Clock, FileText } from "lucide-react";
 import Link from "next/link";
 
-export default function AulasPage() {
+async function getLessons() {
+  try {
+    const lessons = await prisma.lesson.findMany({
+      include: {
+        discipline: { include: { course: true } },
+        workflowSteps: { orderBy: { order: "asc" } },
+        _count: { select: { questions: true, files: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+    return lessons.map((l) => ({
+      ...l,
+      progress: Math.round(
+        (l.workflowSteps.filter((s) => s.status === "APROVADA").length / 12) * 100
+      ),
+      currentStep:
+        l.workflowSteps.findIndex(
+          (s) => s.status === "AGUARDANDO_APROVACAO" || s.status === "EM_ANDAMENTO"
+        ) + 1 || 0,
+      estimatedHours: l.estimatedHours ?? 0,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+export default async function AulasPage() {
+  const dbLessons = await getLessons();
+  const lessons = dbLessons && dbLessons.length > 0 ? dbLessons : mockLessons;
+
   return (
     <div className="pt-16">
       <Topbar title="Aulas" />
@@ -14,7 +44,7 @@ export default function AulasPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Todas as Aulas</h2>
-            <p className="text-sm text-gray-500">{mockLessons.length} aulas cadastradas</p>
+            <p className="text-sm text-gray-500">{lessons.length} aulas cadastradas</p>
           </div>
           <Link href="/aulas/nova">
             <Button className="gap-2">
@@ -42,7 +72,7 @@ export default function AulasPage() {
 
         {/* Lessons Grid */}
         <div className="space-y-3">
-          {mockLessons.map((lesson) => (
+          {lessons.map((lesson) => (
             <Link key={lesson.id} href={`/aulas/${lesson.id}`}>
               <Card className="hover:border-blue-200 hover:shadow-md transition-all cursor-pointer">
                 <CardContent className="p-5">
@@ -56,7 +86,9 @@ export default function AulasPage() {
                         <StatusBadge status={lesson.status} />
                       </div>
                       <h3 className="text-sm font-semibold text-gray-900 mt-0.5">{lesson.title}</h3>
-                      <p className="text-xs text-gray-400 mt-0.5">{lesson.discipline.name} · {lesson.discipline.course.name}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {lesson.discipline.name} · {lesson.discipline.course.name}
+                      </p>
                     </div>
                     <div className="hidden md:flex items-center gap-6 text-xs text-gray-500">
                       <div className="flex items-center gap-1.5">
@@ -74,12 +106,15 @@ export default function AulasPage() {
                       <div className="w-24">
                         <div className="flex items-center gap-1.5">
                           <div className="flex-1 bg-gray-100 rounded-full h-1.5">
-                            <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${lesson.progress}%` }} />
+                            <div
+                              className="h-1.5 rounded-full bg-blue-500"
+                              style={{ width: `${lesson.progress}%` }}
+                            />
                           </div>
                           <span className="text-xs font-medium">{lesson.progress}%</span>
                         </div>
                         <p className="text-[10px] text-gray-400 mt-0.5">
-                          Etapa {lesson.currentStep + 1} de 12
+                          Etapa {lesson.currentStep} de 12
                         </p>
                       </div>
                     </div>

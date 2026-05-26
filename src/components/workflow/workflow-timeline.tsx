@@ -23,6 +23,21 @@ const STATUS_STYLES = {
   BLOQUEADA: "border-gray-100 bg-gray-50 text-gray-300",
 };
 
+const STEP_KEY_ICONS: Record<string, string> = {
+  CADASTRO: "📋",
+  SELECAO_QUESTOES: "🔍",
+  CADERNOS_QUESTOES: "📚",
+  PREPARACAO_EDITORIAL: "✏️",
+  PRODUCAO_TEORIA: "📖",
+  PADRONIZACAO_EDITORIAL: "🎨",
+  COMENTARIOS_QUESTOES: "💬",
+  MONTAGEM_PDFS: "📄",
+  SLIDES: "🖥️",
+  REVISAO_HUMANA: "👁️",
+  GRAVACAO: "🎥",
+  PUBLICACAO: "🚀",
+};
+
 interface Step {
   id: string;
   stepKey: string;
@@ -31,7 +46,7 @@ interface Step {
   isManual: boolean;
   isAiEnabled: boolean;
   status: string;
-  icon: string;
+  icon?: string;
 }
 
 interface WorkflowTimelineProps {
@@ -76,7 +91,7 @@ export function WorkflowTimeline({ steps, lessonId, currentStepId }: WorkflowTim
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm">{step.icon}</span>
+                  <span className="text-sm">{step.icon ?? STEP_KEY_ICONS[step.stepKey] ?? "📋"}</span>
                   <p className={cn(
                     "text-xs font-medium truncate",
                     step.status === "BLOQUEADA" ? "text-gray-400" : "text-gray-800"
