@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,7 @@ import { toast } from "sonner";
 const BOARDS = ["CEBRASPE", "FGV", "FCC", "VUNESP", "CESPE", "OUTROS"];
 const DEPTH_LEVELS = ["Básico", "Intermediário", "Avançado"];
 
-const DISCIPLINES = [
+const FALLBACK_DISCIPLINES = [
   { value: "disc-bd-01", label: "Banco de Dados" },
   { value: "disc-redes-01", label: "Redes de Computadores" },
   { value: "disc-so-01", label: "Sistemas Operacionais" },
@@ -32,6 +32,19 @@ export default function NovaAulaPage() {
   const [dragging, setDragging] = useState(false);
   const [selectedBoards, setSelectedBoards] = useState<string[]>(["CEBRASPE", "FCC"]);
   const [topics, setTopics] = useState([{ title: "", description: "", order: 1 }]);
+  const [disciplines, setDisciplines] = useState(FALLBACK_DISCIPLINES);
+
+  useEffect(() => {
+    fetch("/api/disciplines")
+      .then(r => r.json())
+      .then((data: { id: string; name: string }[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setDisciplines(data.map(d => ({ value: d.id, label: d.name })));
+          setForm(f => ({ ...f, disciplineId: data[0].id }));
+        }
+      })
+      .catch(() => {}); // keep fallback
+  }, []);
 
   const [form, setForm] = useState({
     disciplineId: "disc-bd-01",
@@ -292,7 +305,7 @@ export default function NovaAulaPage() {
                     <SelectValue placeholder="Selecione a disciplina" />
                   </SelectTrigger>
                   <SelectContent>
-                    {DISCIPLINES.map(d => (
+                    {disciplines.map(d => (
                       <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
                     ))}
                   </SelectContent>

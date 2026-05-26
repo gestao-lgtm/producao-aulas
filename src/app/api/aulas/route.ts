@@ -98,7 +98,10 @@ export async function POST(req: NextRequest) {
     if (error.code === "P2002") {
       return NextResponse.json({ error: "Código de aula já existe" }, { status: 409 });
     }
+    if (error.code === "P2003" || error.code === "P2025") {
+      return NextResponse.json({ error: "Disciplina não encontrada. Tente recarregar a página." }, { status: 400 });
+    }
     console.error("POST /api/aulas:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao salvar aula: " + (error.message ?? "erro desconhecido") }, { status: 500 });
   }
 }
