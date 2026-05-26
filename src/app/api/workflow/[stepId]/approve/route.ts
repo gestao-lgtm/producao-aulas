@@ -19,8 +19,8 @@ export async function POST(
       return NextResponse.json({ error: "Etapa não encontrada" }, { status: 404 });
     }
 
-    if (step.status !== "AGUARDANDO_APROVACAO") {
-      return NextResponse.json({ error: "Etapa não está aguardando aprovação" }, { status: 400 });
+    if (!["AGUARDANDO_APROVACAO", "EM_ANDAMENTO", "NAO_INICIADA"].includes(step.status)) {
+      return NextResponse.json({ error: "Etapa não pode ser aprovada no estado atual: " + step.status }, { status: 400 });
     }
 
     await prisma.workflowStep.update({
