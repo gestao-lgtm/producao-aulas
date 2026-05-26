@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { STEP_DEFINITIONS } from "@/types";
 
@@ -123,6 +124,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    revalidatePath("/aulas");
     return NextResponse.json(lesson, { status: 201 });
   } catch (error: any) {
     if (error.code === "P2002") {

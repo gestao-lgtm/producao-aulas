@@ -62,28 +62,37 @@ export async function POST(request: NextRequest) {
 
     const prompt = `Você receberá o texto de um documento de arquitetura pedagógica de uma aula para concursos públicos de TI.
 
-Extraia as seguintes informações e retorne SOMENTE um JSON válido, sem markdown, sem explicações adicionais:
+Extraia as informações e retorne SOMENTE um JSON válido, sem markdown, sem explicações adicionais.
 
+REGRAS IMPORTANTES:
+- "title": título limpo da aula, sem pontuação extra, com acentuação correta em português
+- "subtitle": subtítulo se existir, senão null
+- "code": código alfanumérico da aula (ex: SI-FD01, BD-FD02), senão null
+- "discipline": nome da disciplina (ex: "Segurança da Informação"), senão null
+- "scope": descrição em prosa do conteúdo abordado. NÃO copie sumário ou índice numerado com páginas. Se houver um sumário/índice (lista de "1. Tópico ... pág"), use-o para preencher "topics", não "scope". O scope deve ser uma frase descritiva.
+- "outOfScope": o que explicitamente não será abordado, senão null
+- "targetPages": número inteiro de páginas estimadas (ignore números de página do índice), senão null
+- "depthLevel": "Básico", "Intermediário" ou "Avançado"
+- "priorityBoards": array com bancas mencionadas (CEBRASPE, FGV, FCC, VUNESP, CESPE, OUTROS), senão []
+- "studentProfile": perfil do aluno-alvo, senão null
+- "pedagogicalNotes": instruções pedagógicas especiais, senão null
+- "topics": extraia do sumário/índice ou seções do documento. Cada item: { "title": "nome do tópico", "description": "subtópicos separados por vírgula ou null" }. Máximo 15 tópicos principais.
+
+Formato de retorno:
 {
-  "title": "Título da aula",
-  "subtitle": "Subtítulo (se houver)",
-  "code": "Código da aula (ex: BD-FD01)",
-  "discipline": "Nome da disciplina",
-  "scope": "Escopo — o que a aula abrange",
-  "outOfScope": "O que NÃO está no escopo (se informado)",
-  "targetPages": número_de_páginas_ou_null,
-  "depthLevel": "Básico|Intermediário|Avançado",
-  "priorityBoards": ["CEBRASPE","FGV","FCC","VUNESP","CESPE","OUTROS"],
-  "studentProfile": "Perfil do aluno-alvo",
-  "pedagogicalNotes": "Observações pedagógicas ou instruções especiais",
-  "topics": [
-    { "title": "Nome do tópico", "description": "Descrição ou subtópicos" }
-  ]
+  "title": "...",
+  "subtitle": null,
+  "code": null,
+  "discipline": "...",
+  "scope": "...",
+  "outOfScope": null,
+  "targetPages": null,
+  "depthLevel": "Intermediário",
+  "priorityBoards": [],
+  "studentProfile": null,
+  "pedagogicalNotes": null,
+  "topics": []
 }
-
-Se um campo não estiver presente no documento, use null para strings e [] para arrays.
-Para priorityBoards, inclua apenas bancas explicitamente mencionadas.
-Para topics, liste apenas os tópicos/capítulos principais encontrados (máx 15).
 
 DOCUMENTO:
 ${text.slice(0, 8000)}`;

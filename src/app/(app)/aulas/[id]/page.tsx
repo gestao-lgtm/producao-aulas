@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Topbar } from "@/components/layout/topbar";
@@ -8,7 +10,7 @@ import { WorkflowTimeline } from "@/components/workflow/workflow-timeline";
 import { mockLessons, mockWorkflowSteps, mockFiles } from "@/lib/mock/data";
 import {
   BookOpen, Target, Users, FileText, ChevronRight,
-  AlertCircle, Play
+  AlertCircle, Play, Pencil
 } from "lucide-react";
 import Link from "next/link";
 
@@ -74,14 +76,22 @@ export default async function LessonPage({
       <Topbar
         title={lesson.code}
         action={
-          currentStep ? (
-            <Link href={`/aulas/${lesson.id}/etapas/${currentStep.id}`}>
-              <Button className="gap-2">
-                <Play className="h-4 w-4" />
-                Continuar Produção
+          <div className="flex gap-2">
+            <Link href={`/aulas/${lesson.id}/editar`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Pencil className="h-3.5 w-3.5" />
+                Editar
               </Button>
             </Link>
-          ) : undefined
+            {currentStep && (
+              <Link href={`/aulas/${lesson.id}/etapas/${currentStep.id}`}>
+                <Button className="gap-2">
+                  <Play className="h-4 w-4" />
+                  Continuar Produção
+                </Button>
+              </Link>
+            )}
+          </div>
         }
       />
       <main className="p-6">
