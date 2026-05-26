@@ -62,7 +62,7 @@ export function WorkflowTimeline({ steps, lessonId, currentStepId }: WorkflowTim
         {steps.map((step, index) => {
           const Icon = STATUS_ICONS[step.status as keyof typeof STATUS_ICONS] || Clock;
           const isActive = step.id === currentStepId;
-          const isClickable = step.status !== "BLOQUEADA" && step.status !== "NAO_INICIADA";
+          const isClickable = step.status !== "BLOQUEADA";
           const style = STATUS_STYLES[step.status as keyof typeof STATUS_STYLES];
 
           const content = (
