@@ -2,6 +2,33 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { STEP_DEFINITIONS } from "@/types";
 
+const COURSE_ID = "course-ti-total-main";
+
+async function ensureDiscipline(disciplineName: string): Promise<string> {
+  // Ensure course exists
+  await prisma.course.upsert({
+    where: { id: COURSE_ID },
+    update: {},
+    create: {
+      id: COURSE_ID,
+      name: "TI TOTAL - Tecnologia da Informação para Concursos",
+      description: "Curso completo de TI para concursos públicos",
+    },
+  });
+
+  // Find by name (case-insensitive) or create
+  const name = disciplineName.trim();
+  const existing = await prisma.discipline.findFirst({
+    where: { name: { equals: name, mode: "insensitive" } },
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.discipline.create({
+    data: { courseId: COURSE_ID, name },
+  });
+  return created.id;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -33,13 +60,16 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      disciplineId, code, title, subtitle, position, scope, outOfScope,
+      disciplineName, code, title, subtitle, position, scope, outOfScope,
       targetPages, priorityBoards, studentProfile, depthLevel, pedagogicalNotes, topics,
     } = body;
 
-    if (!code || !title || !disciplineId) {
-      return NextResponse.json({ error: "code, title e disciplineId são obrigatórios" }, { status: 400 });
+    if (!code || !title) {
+      return NextResponse.json({ error: "Código e título são obrigatórios." }, { status: 400 });
     }
+
+    const name = (disciplineName ?? "Geral").trim() || "Geral";
+    const disciplineId = await ensureDiscipline(name);
 
     const lesson = await prisma.lesson.create({
       data: {
@@ -96,12 +126,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(lesson, { status: 201 });
   } catch (error: any) {
     if (error.code === "P2002") {
-      return NextResponse.json({ error: "Código de aula já existe" }, { status: 409 });
-    }
-    if (error.code === "P2003" || error.code === "P2025") {
-      return NextResponse.json({ error: "Disciplina não encontrada. Tente recarregar a página." }, { status: 400 });
+      return NextResponse.json({ error: "Já existe uma aula com esse código." }, { status: 409 });
     }
     console.error("POST /api/aulas:", error);
-    return NextResponse.json({ error: "Erro ao salvar aula: " + (error.message ?? "erro desconhecido") }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao salvar: " + (error.message ?? "erro desconhecido") }, { status: 500 });
   }
 }

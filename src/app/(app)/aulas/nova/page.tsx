@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,12 +15,16 @@ import { toast } from "sonner";
 
 const BOARDS = ["CEBRASPE", "FGV", "FCC", "VUNESP", "CESPE", "OUTROS"];
 const DEPTH_LEVELS = ["Básico", "Intermediário", "Avançado"];
-
-const FALLBACK_DISCIPLINES = [
-  { value: "disc-bd-01", label: "Banco de Dados" },
-  { value: "disc-redes-01", label: "Redes de Computadores" },
-  { value: "disc-so-01", label: "Sistemas Operacionais" },
-  { value: "disc-si-01", label: "Segurança da Informação" },
+const DISCIPLINE_SUGGESTIONS = [
+  "Banco de Dados",
+  "Redes de Computadores",
+  "Segurança da Informação",
+  "Sistemas Operacionais",
+  "Engenharia de Software",
+  "Governança de TI",
+  "Programação",
+  "Infraestrutura",
+  "Legislação de TI",
 ];
 
 export default function NovaAulaPage() {
@@ -32,22 +36,9 @@ export default function NovaAulaPage() {
   const [dragging, setDragging] = useState(false);
   const [selectedBoards, setSelectedBoards] = useState<string[]>(["CEBRASPE", "FCC"]);
   const [topics, setTopics] = useState([{ title: "", description: "", order: 1 }]);
-  const [disciplines, setDisciplines] = useState(FALLBACK_DISCIPLINES);
-
-  useEffect(() => {
-    fetch("/api/disciplines")
-      .then(r => r.json())
-      .then((data: { id: string; name: string }[]) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setDisciplines(data.map(d => ({ value: d.id, label: d.name })));
-          setForm(f => ({ ...f, disciplineId: data[0].id }));
-        }
-      })
-      .catch(() => {}); // keep fallback
-  }, []);
 
   const [form, setForm] = useState({
-    disciplineId: "disc-bd-01",
+    disciplineName: "",
     code: "",
     title: "",
     subtitle: "",
@@ -75,9 +66,8 @@ export default function NovaAulaPage() {
   };
 
   const handleFile = (file: File) => {
-    const allowed = ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"];
     const ext = file.name.split(".").pop()?.toLowerCase();
-    if (!allowed.includes(file.type) && ext !== "docx" && ext !== "txt") {
+    if (ext !== "docx" && ext !== "txt") {
       toast.error("Formato não suportado. Use arquivos .docx ou .txt");
       return;
     }
@@ -109,19 +99,9 @@ export default function NovaAulaPage() {
 
       const d = json.data;
 
-      // Map discipline name to ID
-      let disciplineId = form.disciplineId;
-      if (d.discipline) {
-        const name = (d.discipline as string).toLowerCase();
-        if (name.includes("banco") || name.includes("dados") || name === "bd") disciplineId = "disc-bd-01";
-        else if (name.includes("rede") || name === "rc") disciplineId = "disc-redes-01";
-        else if (name.includes("sistema") || name.includes("operacional") || name === "so") disciplineId = "disc-so-01";
-        else if (name.includes("seguran") || name === "si") disciplineId = "disc-si-01";
-      }
-
       setForm(f => ({
         ...f,
-        disciplineId,
+        disciplineName: d.discipline ?? f.disciplineName,
         code: d.code ?? f.code,
         title: d.title ?? f.title,
         subtitle: d.subtitle ?? f.subtitle,
@@ -215,7 +195,6 @@ export default function NovaAulaPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Drop zone */}
             <div
               onDragOver={e => { e.preventDefault(); setDragging(true); }}
               onDragLeave={() => setDragging(false)}
@@ -245,7 +224,7 @@ export default function NovaAulaPage() {
                   <div>
                     <p className="font-medium text-sm">{uploadedFile.name}</p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {(uploadedFile.size / 1024).toFixed(0)} KB • clique para trocar
+                      {(uploadedFile.size / 1024).toFixed(0)} KB · clique para trocar
                     </p>
                   </div>
                   <button
@@ -271,22 +250,12 @@ export default function NovaAulaPage() {
                 disabled={extracting}
               >
                 {extracting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Extraindo campos com IA...
-                  </>
+                  <><Loader2 className="h-4 w-4 animate-spin" />Extraindo campos com IA...</>
                 ) : (
-                  <>
-                    <Sparkles className="h-4 w-4" />
-                    Extrair Campos com IA
-                  </>
+                  <><Sparkles className="h-4 w-4" />Extrair Campos com IA</>
                 )}
               </Button>
             )}
-
-            <p className="text-xs text-gray-400 text-center">
-              Após a extração, revise e ajuste os campos antes de salvar.
-            </p>
           </CardContent>
         </Card>
 
@@ -296,26 +265,25 @@ export default function NovaAulaPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-xs">Disciplina *</Label>
-                <Select
-                  value={form.disciplineId}
-                  onValueChange={v => setForm(f => ({ ...f, disciplineId: v }))}
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Selecione a disciplina" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {disciplines.map(d => (
-                      <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs">Disciplina</Label>
+                <Input
+                  className="mt-1.5"
+                  placeholder="Ex: Segurança da Informação"
+                  list="discipline-suggestions"
+                  value={form.disciplineName}
+                  onChange={e => setForm(f => ({ ...f, disciplineName: e.target.value }))}
+                />
+                <datalist id="discipline-suggestions">
+                  {DISCIPLINE_SUGGESTIONS.map(s => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
               </div>
               <div>
                 <Label className="text-xs">Código da Aula *</Label>
                 <Input
                   className="mt-1.5"
-                  placeholder="Ex: BD-FD03"
+                  placeholder="Ex: SI-FD01"
                   value={form.code}
                   onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
                 />
@@ -325,7 +293,7 @@ export default function NovaAulaPage() {
               <Label className="text-xs">Título da Aula *</Label>
               <Input
                 className="mt-1.5"
-                placeholder="Ex: Modelagem Entidade-Relacionamento"
+                placeholder="Ex: Fundamentos de Segurança da Informação"
                 value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               />
@@ -334,7 +302,7 @@ export default function NovaAulaPage() {
               <Label className="text-xs">Subtítulo (opcional)</Label>
               <Input
                 className="mt-1.5"
-                placeholder="Ex: Conceitos, notações e casos práticos"
+                placeholder="Ex: Criptografia, políticas e gestão de riscos"
                 value={form.subtitle}
                 onChange={e => setForm(f => ({ ...f, subtitle: e.target.value }))}
               />
@@ -345,7 +313,7 @@ export default function NovaAulaPage() {
                 <Input
                   type="number"
                   className="mt-1.5"
-                  placeholder="Ex: 3"
+                  placeholder="Ex: 1"
                   value={form.position}
                   onChange={e => setForm(f => ({ ...f, position: e.target.value }))}
                 />
