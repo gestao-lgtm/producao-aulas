@@ -148,10 +148,28 @@ export default function NovaAulaPage() {
       return;
     }
     setSaving(true);
-    await new Promise(r => setTimeout(r, 1000));
-    setSaving(false);
-    toast.success("Aula criada com sucesso!");
-    router.push("/aulas/lesson-fd02");
+    try {
+      const res = await fetch("/api/aulas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          priorityBoards: selectedBoards,
+          topics: topics.filter(t => t.title.trim()),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Erro ao criar aula.");
+        return;
+      }
+      toast.success("Aula criada com sucesso!");
+      router.push(`/aulas/${json.id}`);
+    } catch {
+      toast.error("Erro de conexão. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
