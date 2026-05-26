@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,16 +9,27 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, Plus, X, Save, Rocket } from "lucide-react";
+import { ChevronLeft, Plus, X, Save, Rocket, Upload, FileText, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
 const BOARDS = ["CEBRASPE", "FGV", "FCC", "VUNESP", "CESPE", "OUTROS"];
 const DEPTH_LEVELS = ["Básico", "Intermediário", "Avançado"];
 
+const DISCIPLINES = [
+  { value: "disc-bd-01", label: "Banco de Dados" },
+  { value: "disc-redes-01", label: "Redes de Computadores" },
+  { value: "disc-so-01", label: "Sistemas Operacionais" },
+  { value: "disc-si-01", label: "Segurança da Informação" },
+];
+
 export default function NovaAulaPage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [selectedBoards, setSelectedBoards] = useState<string[]>(["CEBRASPE", "FCC"]);
   const [topics, setTopics] = useState([{ title: "", description: "", order: 1 }]);
 
@@ -50,6 +61,87 @@ export default function NovaAulaPage() {
     );
   };
 
+  const handleFile = (file: File) => {
+    const allowed = ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"];
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (!allowed.includes(file.type) && ext !== "docx" && ext !== "txt") {
+      toast.error("Formato não suportado. Use arquivos .docx ou .txt");
+      return;
+    }
+    setUploadedFile(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  };
+
+  const handleExtract = async () => {
+    if (!uploadedFile) return;
+    setExtracting(true);
+
+    try {
+      const fd = new FormData();
+      fd.append("file", uploadedFile);
+
+      const res = await fetch("/api/ai/extract-lesson", { method: "POST", body: fd });
+      const json = await res.json();
+
+      if (!res.ok) {
+        toast.error(json.error ?? "Erro ao extrair campos.");
+        return;
+      }
+
+      const d = json.data;
+
+      // Map discipline name to ID
+      let disciplineId = form.disciplineId;
+      if (d.discipline) {
+        const name = (d.discipline as string).toLowerCase();
+        if (name.includes("banco") || name.includes("dados") || name === "bd") disciplineId = "disc-bd-01";
+        else if (name.includes("rede") || name === "rc") disciplineId = "disc-redes-01";
+        else if (name.includes("sistema") || name.includes("operacional") || name === "so") disciplineId = "disc-so-01";
+        else if (name.includes("seguran") || name === "si") disciplineId = "disc-si-01";
+      }
+
+      setForm(f => ({
+        ...f,
+        disciplineId,
+        code: d.code ?? f.code,
+        title: d.title ?? f.title,
+        subtitle: d.subtitle ?? f.subtitle,
+        scope: d.scope ?? f.scope,
+        outOfScope: d.outOfScope ?? f.outOfScope,
+        targetPages: d.targetPages != null ? String(d.targetPages) : f.targetPages,
+        depthLevel: d.depthLevel ?? f.depthLevel,
+        studentProfile: d.studentProfile ?? f.studentProfile,
+        pedagogicalNotes: d.pedagogicalNotes ?? f.pedagogicalNotes,
+      }));
+
+      if (Array.isArray(d.priorityBoards) && d.priorityBoards.length > 0) {
+        setSelectedBoards(d.priorityBoards as string[]);
+      }
+
+      if (Array.isArray(d.topics) && d.topics.length > 0) {
+        setTopics(
+          (d.topics as { title: string; description: string }[]).map((t, i) => ({
+            title: t.title ?? "",
+            description: t.description ?? "",
+            order: i + 1,
+          }))
+        );
+      }
+
+      toast.success("Campos preenchidos com sucesso! Revise e ajuste conforme necessário.");
+    } catch {
+      toast.error("Erro de conexão ao extrair campos.");
+    } finally {
+      setExtracting(false);
+    }
+  };
+
   const handleSave = async (startProduction = false) => {
     if (!form.code || !form.title) {
       toast.error("Código e título são obrigatórios.");
@@ -79,9 +171,93 @@ export default function NovaAulaPage() {
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Cadastrar Nova Aula</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Preencha a arquitetura pedagógica da aula. Esta etapa é feita pela equipe, não pela IA.
+            Preencha os campos manualmente ou suba o arquivo da arquitetura e deixe a IA extrair tudo automaticamente.
           </p>
         </div>
+
+        {/* File Upload — AI Extraction */}
+        <Card className="border-2 border-dashed border-blue-200 bg-blue-50/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2 text-blue-700">
+              <Sparkles className="h-4 w-4" />
+              Preencher com IA — suba o arquivo da arquitetura
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Drop zone */}
+            <div
+              onDragOver={e => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 cursor-pointer transition-colors ${
+                dragging
+                  ? "border-blue-500 bg-blue-100"
+                  : uploadedFile
+                  ? "border-green-400 bg-green-50"
+                  : "border-gray-300 bg-white hover:border-blue-400 hover:bg-blue-50"
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".docx,.txt"
+                className="hidden"
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFile(f);
+                }}
+              />
+              {uploadedFile ? (
+                <div className="flex items-center gap-3 text-green-700">
+                  <FileText className="h-8 w-8 text-green-500" />
+                  <div>
+                    <p className="font-medium text-sm">{uploadedFile.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {(uploadedFile.size / 1024).toFixed(0)} KB • clique para trocar
+                    </p>
+                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); setUploadedFile(null); }}
+                    className="ml-4 text-gray-400 hover:text-red-500"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center text-gray-500">
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                  <p className="text-sm font-medium">Arraste o arquivo aqui ou clique para selecionar</p>
+                  <p className="text-xs mt-1 text-gray-400">Aceita .docx e .txt — a IA vai extrair todos os campos</p>
+                </div>
+              )}
+            </div>
+
+            {uploadedFile && (
+              <Button
+                className="w-full gap-2 bg-blue-600 hover:bg-blue-700"
+                onClick={handleExtract}
+                disabled={extracting}
+              >
+                {extracting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Extraindo campos com IA...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Extrair Campos com IA
+                  </>
+                )}
+              </Button>
+            )}
+
+            <p className="text-xs text-gray-400 text-center">
+              Após a extração, revise e ajuste os campos antes de salvar.
+            </p>
+          </CardContent>
+        </Card>
 
         {/* Basic Info */}
         <Card>
@@ -90,14 +266,17 @@ export default function NovaAulaPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs">Disciplina *</Label>
-                <Select defaultValue="disc-bd-01">
+                <Select
+                  value={form.disciplineId}
+                  onValueChange={v => setForm(f => ({ ...f, disciplineId: v }))}
+                >
                   <SelectTrigger className="mt-1.5">
                     <SelectValue placeholder="Selecione a disciplina" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="disc-bd-01">Banco de Dados</SelectItem>
-                    <SelectItem value="disc-redes-01">Redes de Computadores</SelectItem>
-                    <SelectItem value="disc-so-01">Sistemas Operacionais</SelectItem>
+                    {DISCIPLINES.map(d => (
+                      <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -152,7 +331,10 @@ export default function NovaAulaPage() {
               </div>
               <div>
                 <Label className="text-xs">Nível de Profundidade</Label>
-                <Select defaultValue="Intermediário" onValueChange={v => setForm(f => ({ ...f, depthLevel: v }))}>
+                <Select
+                  value={form.depthLevel}
+                  onValueChange={v => setForm(f => ({ ...f, depthLevel: v }))}
+                >
                   <SelectTrigger className="mt-1.5">
                     <SelectValue />
                   </SelectTrigger>

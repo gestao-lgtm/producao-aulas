@@ -73,6 +73,19 @@ async function main() {
     },
   });
 
+  // Discipline: Segurança da Informação
+  await prisma.discipline.upsert({
+    where: { id: "disc-si-01" },
+    update: {},
+    create: {
+      id: "disc-si-01",
+      courseId: course.id,
+      name: "Segurança da Informação",
+      code: "SI",
+      description: "Criptografia, políticas de segurança, gestão de riscos e conformidade",
+    },
+  });
+
   // Lesson: FD02 - Fundamentos de Banco de Dados (in progress)
   const lessonFD02 = await prisma.lesson.upsert({
     where: { code: "BD-FD02" },

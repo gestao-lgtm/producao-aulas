@@ -72,6 +72,23 @@ export const mockLessons = [
     currentStep: 2,
     progress: 22,
   },
+  {
+    id: "lesson-si01",
+    code: "SI-FD01",
+    title: "Fundamentos de Segurança da Informação",
+    subtitle: "Criptografia, políticas de segurança e gestão de riscos",
+    position: 1,
+    status: "RASCUNHO",
+    estimatedHours: 38,
+    targetPages: 95,
+    priorityBoards: ["CEBRASPE", "FGV", "FCC"],
+    discipline: { name: "Segurança da Informação", code: "SI", course: { name: "TI TOTAL" } },
+    createdAt: new Date("2024-05-26"),
+    updatedAt: new Date("2024-05-26"),
+    _count: { questions: 0, files: 0 },
+    currentStep: 0,
+    progress: 0,
+  },
 ];
 
 export const mockWorkflowSteps = [
