@@ -69,19 +69,46 @@ ${(lesson.memory as any)?.tricks?.length > 0 ? `PEGADINHAS: ${JSON.stringify((le
 
 TAREFA: Gere APENAS o conteúdo da seção ${sectionNum} desta aula.`;
 
-    if (isFirst) {
+    if (isFirst && isLast) {
+      // Only one topic — generate the complete document
       sectionPrompt += `
 
-Comece o documento com:
+Gere o documento completo:
 # ${lesson.title}
 
-${allTopics.map((t: string, i: number) => `- ${t}`).join("\n")}
+${allTopics.map((t: string) => `- ${t}`).join("\n")}
 
 ---
 
 ## ${sectionNum}. ${topicTitle}
 
-[conteúdo completo da seção seguindo o padrão TI TOTAL]`;
+[conteúdo completo da seção seguindo o padrão TI TOTAL]
+
+---
+
+## ESSENCIAL DE PROVA — REVISÃO FINAL
+[síntese dos pontos mais cobrados em provas de toda a aula]
+
+## GLOSSÁRIO DE TERMOS
+[termos principais com definições resumidas, um por linha]
+
+## REFERÊNCIAS
+[fontes bibliográficas]`;
+    } else if (isFirst) {
+      sectionPrompt += `
+
+Comece o documento com:
+# ${lesson.title}
+
+${allTopics.map((t: string) => `- ${t}`).join("\n")}
+
+---
+
+## ${sectionNum}. ${topicTitle}
+
+[conteúdo completo da seção seguindo o padrão TI TOTAL]
+
+Termine sua resposta IMEDIATAMENTE após o conteúdo desta seção. NÃO gere seções seguintes.`;
     } else if (isLast) {
       sectionPrompt += `
 
@@ -108,7 +135,7 @@ Gere apenas:
 
 [conteúdo completo da seção seguindo o padrão TI TOTAL]
 
-Termine sua resposta imediatamente após o conteúdo desta seção.`;
+Termine sua resposta IMEDIATAMENTE após o conteúdo desta seção. NÃO gere seções seguintes.`;
     }
 
     const systemPrompt = getSectionSystemPrompt();
