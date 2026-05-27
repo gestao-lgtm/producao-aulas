@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Sparkles, CheckCircle, XCircle, RotateCcw, ChevronLeft,
-  FileText, Check, Loader2, Clock, Download, MessageSquare, History
+  FileText, Check, Loader2, Clock, Download, MessageSquare, History, FileDown
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -249,8 +249,35 @@ export default function StepExecutionPage() {
               </CardContent>
             </Card>
 
+            {/* Padronização Editorial: DOCX download panel */}
+            {step.stepKey === "PADRONIZACAO_EDITORIAL" && !output && (
+              <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/50 py-12 gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
+                  <FileDown className="h-7 w-7 text-blue-600" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-gray-800">Padronização Editorial</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Gera o documento Word formatado no padrão TI TOTAL a partir da teoria aprovada.
+                  </p>
+                </div>
+                <Button
+                  className="gap-2"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = `/api/export/docx/${params.stepId}`;
+                    a.download = `${lesson.code}-teoria.docx`;
+                    a.click();
+                  }}
+                >
+                  <FileDown className="h-4 w-4" />
+                  Baixar DOCX — Padrão TI TOTAL
+                </Button>
+              </div>
+            )}
+
             {/* Manual step: just show approve */}
-            {step.isManual && !output && (
+            {step.isManual && step.stepKey !== "PADRONIZACAO_EDITORIAL" && !output && (
               <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-green-200 bg-green-50/50 py-12 gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
                   <CheckCircle className="h-7 w-7 text-green-600" />
@@ -322,8 +349,22 @@ export default function StepExecutionPage() {
                       }}
                     >
                       <Download className="h-3 w-3" />
-                      Exportar
+                      Exportar .txt
                     </Button>
+                    {(step.stepKey === "PRODUCAO_TEORIA" || step.stepKey === "PADRONIZACAO_EDITORIAL") && (
+                      <Button
+                        variant="outline" size="sm" className="gap-1.5 h-7 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                        onClick={() => {
+                          const a = document.createElement("a");
+                          a.href = `/api/export/docx/${params.stepId}`;
+                          a.download = `${lesson.code}-teoria.docx`;
+                          a.click();
+                        }}
+                      >
+                        <FileDown className="h-3 w-3" />
+                        Baixar DOCX
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
