@@ -130,20 +130,50 @@ export default function StepExecutionPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stepId: params.stepId, lessonId: params.id }),
       });
-      let json: any = {};
-      try { json = await res.json(); } catch { /* non-JSON response (e.g. 504 timeout) */ }
-      if (!res.ok) {
-        if (res.status === 504 || res.status === 408) {
-          toast.error("Tempo limite excedido. A geração está em andamento — aguarde 30s e recarregue a página.");
-        } else {
-          toast.error(json.error ?? "Erro ao gerar conteúdo.");
-        }
+
+      if (!res.ok || !res.body) {
+        let errMsg = "Erro ao gerar conteúdo.";
+        try { const j = await res.json(); errMsg = j.error ?? errMsg; } catch {}
+        toast.error(errMsg);
         return;
       }
-      if (json.outputText) setOutput(json.outputText);
-      if (json.version) setRunVersion(json.version);
-      await reloadStep();
-      toast.success("Conteúdo gerado com sucesso!");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+
+        if (chunk.includes("__STREAM_ERROR__")) {
+          toast.error("Erro na geração com IA. Tente novamente.");
+          setIsGenerating(false);
+          return;
+        }
+
+        if (chunk.includes("__STREAM_END__")) {
+          const textPart = chunk.split("__STREAM_END__")[0];
+          accumulated += textPart;
+          const metaStr = chunk.split("__STREAM_END__")[1];
+          try {
+            const meta = JSON.parse(metaStr);
+            if (meta.version) setRunVersion(meta.version);
+          } catch {}
+          break;
+        }
+
+        accumulated += chunk;
+        setOutput(accumulated);
+      }
+
+      if (accumulated) {
+        setOutput(accumulated);
+        await reloadStep();
+        toast.success("Conteúdo gerado com sucesso!");
+      }
     } catch {
       toast.error("Erro de conexão — verifique sua internet e tente novamente.");
     } finally {

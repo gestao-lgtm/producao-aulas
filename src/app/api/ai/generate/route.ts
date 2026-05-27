@@ -3,11 +3,32 @@ import { prisma } from "@/lib/prisma";
 
 export const maxDuration = 60;
 
-async function callOpenAI(prompt: string, systemPrompt: string, config: any): Promise<string> {
+// ─── Streaming helpers ───────────────────────────────────────────────────────
+
+async function* streamAnthropic(prompt: string, systemPrompt: string, config: any) {
+  const Anthropic = (await import("@anthropic-ai/sdk")).default;
+  const client = new Anthropic({ apiKey: config.apiKey || process.env.ANTHROPIC_API_KEY });
+
+  const stream = client.messages.stream({
+    model: config.model || "claude-sonnet-4-6",
+    max_tokens: config.maxTokens || 8000,
+    system: systemPrompt,
+    messages: [{ role: "user", content: prompt }],
+    temperature: config.temperature || 0.3,
+  });
+
+  for await (const chunk of stream) {
+    if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+      yield chunk.delta.text;
+    }
+  }
+}
+
+async function* streamOpenAI(prompt: string, systemPrompt: string, config: any) {
   const { OpenAI } = await import("openai");
   const client = new OpenAI({ apiKey: config.apiKey || process.env.OPENAI_API_KEY });
 
-  const response = await client.chat.completions.create({
+  const stream = await client.chat.completions.create({
     model: config.model || "gpt-4o",
     messages: [
       { role: "system", content: systemPrompt },
@@ -15,24 +36,16 @@ async function callOpenAI(prompt: string, systemPrompt: string, config: any): Pr
     ],
     temperature: config.temperature || 0.3,
     max_tokens: config.maxTokens || 8000,
+    stream: true,
   });
 
-  return response.choices[0]?.message?.content || "";
+  for await (const chunk of stream) {
+    const text = chunk.choices[0]?.delta?.content ?? "";
+    if (text) yield text;
+  }
 }
 
-async function callAnthropic(prompt: string, systemPrompt: string, config: any): Promise<string> {
-  const Anthropic = (await import("@anthropic-ai/sdk")).default;
-  const client = new Anthropic({ apiKey: config.apiKey || process.env.ANTHROPIC_API_KEY });
-
-  const response = await client.messages.create({
-    model: config.model || "claude-sonnet-4-6",
-    max_tokens: config.maxTokens || 8000,
-    system: systemPrompt,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  return response.content[0]?.type === "text" ? response.content[0].text : "";
-}
+// ─── Route ───────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
@@ -56,7 +69,6 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    // Load latest feedback for this step (if rejecting and regenerating)
     const latestFeedback = step?.stepRuns[0]?.id
       ? await prisma.feedback.findFirst({
           where: { stepRunId: step.stepRuns[0].id },
@@ -65,34 +77,32 @@ export async function POST(req: NextRequest) {
       : null;
 
     const lesson = lessonRaw
-      ? { ...lessonRaw, _latestFeedback: latestFeedback ? `${latestFeedback.whatIsWrong || ""}${latestFeedback.whatToChange ? `\nO que mudar: ${latestFeedback.whatToChange}` : ""}${latestFeedback.examples ? `\nExemplos: ${latestFeedback.examples}` : ""}` : null }
+      ? {
+          ...lessonRaw,
+          _latestFeedback: latestFeedback
+            ? `${latestFeedback.whatIsWrong || ""}${latestFeedback.whatToChange ? `\nO que mudar: ${latestFeedback.whatToChange}` : ""}${latestFeedback.examples ? `\nExemplos: ${latestFeedback.examples}` : ""}`
+            : null,
+        }
       : null;
 
     if (!step || !lesson) {
       return NextResponse.json({ error: "Etapa ou aula não encontrada" }, { status: 404 });
     }
 
-    // Get prompt template for this step
     const promptTemplate = await prisma.promptTemplate.findFirst({
       where: { stepKey: step.stepKey, active: true },
       orderBy: { version: "desc" },
     });
 
-    // Get AI config
-    const aiConfig = await prisma.aIConfig.findFirst({
+    const aiConfig = (await prisma.aIConfig.findFirst({
       where: { isDefault: true, active: true },
-    }) || { provider: "openai", model: "gpt-4o", temperature: 0.3, maxTokens: 4000 };
+    })) ?? { provider: "openai", model: "gpt-4o", temperature: 0.3, maxTokens: 8000 };
 
-    // Build context prompt
     const contextPrompt = buildContextPrompt(lesson, step, promptTemplate?.prompt);
+    const systemPrompt = promptTemplate?.prompt || getDefaultSystemPrompt(step.stepKey);
 
-    // Update step status
-    await prisma.workflowStep.update({
-      where: { id: stepId },
-      data: { status: "EM_ANDAMENTO" },
-    });
+    await prisma.workflowStep.update({ where: { id: stepId }, data: { status: "EM_ANDAMENTO" } });
 
-    // Create new step run
     const previousVersion = step.stepRuns[0]?.version || 0;
     const newRun = await prisma.stepRun.create({
       data: {
@@ -104,67 +114,67 @@ export async function POST(req: NextRequest) {
         promptUsed: contextPrompt,
         input: {
           lessonCode: lesson.code,
-          topics: lesson.topics.map(t => t.title),
+          topics: lesson.topics.map((t: any) => t.title),
           scope: lesson.scope,
         },
       },
     });
 
-    let outputText = "";
-    let tokensUsed = 0;
+    const encoder = new TextEncoder();
 
-    try {
-      const systemPrompt = promptTemplate?.prompt || getDefaultSystemPrompt(step.stepKey);
+    const readable = new ReadableStream({
+      async start(controller) {
+        let outputText = "";
+        try {
+          const generator =
+            aiConfig.provider === "anthropic"
+              ? streamAnthropic(contextPrompt, systemPrompt, aiConfig)
+              : streamOpenAI(contextPrompt, systemPrompt, aiConfig);
 
-      if (aiConfig.provider === "anthropic") {
-        outputText = await callAnthropic(contextPrompt, systemPrompt, aiConfig);
-      } else {
-        outputText = await callOpenAI(contextPrompt, systemPrompt, aiConfig);
-      }
+          for await (const chunk of generator) {
+            outputText += chunk;
+            controller.enqueue(encoder.encode(chunk));
+          }
 
-      // Update run with output
-      await prisma.stepRun.update({
-        where: { id: newRun.id },
-        data: {
-          outputText,
-          status: "AGUARDANDO_APROVACAO",
-          tokensUsed,
-        },
-      });
+          await prisma.stepRun.update({
+            where: { id: newRun.id },
+            data: { outputText, status: "AGUARDANDO_APROVACAO" },
+          });
+          await prisma.workflowStep.update({
+            where: { id: stepId },
+            data: { status: "AGUARDANDO_APROVACAO" },
+          });
 
-      // Update step status
-      await prisma.workflowStep.update({
-        where: { id: stepId },
-        data: { status: "AGUARDANDO_APROVACAO" },
-      });
-
-    } catch (aiError) {
-      await prisma.stepRun.update({
-        where: { id: newRun.id },
-        data: { status: "REPROVADA" },
-      });
-      await prisma.workflowStep.update({
-        where: { id: stepId },
-        data: { status: "EM_ANDAMENTO" },
-      });
-      throw aiError;
-    }
-
-    return NextResponse.json({
-      runId: newRun.id,
-      version: newRun.version,
-      outputText,
-      status: "AGUARDANDO_APROVACAO",
+          // Signal completion with metadata
+          controller.enqueue(
+            encoder.encode(`\n\n__STREAM_END__${JSON.stringify({ version: newRun.version, runId: newRun.id })}`)
+          );
+        } catch (err) {
+          console.error("Streaming AI error:", err);
+          await prisma.stepRun.update({ where: { id: newRun.id }, data: { status: "REPROVADA" } });
+          await prisma.workflowStep.update({ where: { id: stepId }, data: { status: "EM_ANDAMENTO" } });
+          controller.enqueue(encoder.encode("\n\n__STREAM_ERROR__"));
+        } finally {
+          controller.close();
+        }
+      },
     });
 
+    return new Response(readable, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
   } catch (error) {
     console.error("POST /api/ai/generate:", error);
     return NextResponse.json({ error: "Falha na geração com IA" }, { status: 500 });
   }
 }
 
+// ─── Context & Prompts ───────────────────────────────────────────────────────
+
 function buildContextPrompt(lesson: any, step: any, templatePrompt?: string): string {
-  const topicsStr = lesson.topics.map((t: any, i: number) => `${i + 1}. ${t.title}${t.description ? ` — ${t.description}` : ""}`).join("\n");
+  const topicsStr = lesson.topics
+    .map((t: any, i: number) => `${i + 1}. ${t.title}${t.description ? ` — ${t.description}` : ""}`)
+    .join("\n");
   const disciplineName = lesson.discipline?.name || "—";
 
   const feedbackBlock = lesson._latestFeedback
@@ -228,9 +238,6 @@ Regra de ouro:
   Azul = o que é   |   Vermelho = o que não é
   NÃO use azul/vermelho apenas para "destacar" — use com função semântica.
 
-Exemplo correto:
-  [[AZUL:Banco de dados]] é uma coleção de dados relacionados com finalidade específica. [[VERMELHO:Não é um simples arquivo]] sem estrutura controlada.
-
 ══════════════════════════════════════════
 TAGS OBRIGATÓRIAS — USE EXATAMENTE ASSIM
 ══════════════════════════════════════════
@@ -287,7 +294,7 @@ Cada seção principal (##) DEVE ter esta ordem:
 4. Explicação (propriedades, características — sem repetir a definição)
 5. Lista de itens quando houver enumerações
 6. [EXEMPLIFICANDO] — após explicação abstrata
-7. Quadros conforme necessário: [ATENCAO], [BIZU], [DICA], [ESCLARECENDO]
+7. Quadros conforme necessário: [ATENCAO], [BIZU], [DICA], [ESCLARECENDO], [ESQUEMA]
 8. [QUESTAO] — 2 a 3 questões reais com resolução comentada
 
 ══════════════════════════════════════════
@@ -324,7 +331,7 @@ Comentário curto (1-2 frases) explicando o erro ou a lógica da assertiva.
 ↺ [se houver troca de conceito] A frase correta seria: "..."
 Gabarito: Certo / Errado / Letra X.
 
-Seja direto. Não escreva parágrafos longos. Não inclua seção 📘 Teoria nos comentários de questões do PDF de teoria.`,
+Seja direto. Não escreva parágrafos longos.`,
   };
   return prompts[stepKey] || "Execute a tarefa conforme as instruções fornecidas.";
 }
