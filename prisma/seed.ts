@@ -469,6 +469,35 @@ REGRAS:
     });
   }
 
+  // AI Configs
+  await prisma.aIConfig.upsert({
+    where: { name: "Anthropic Claude" },
+    update: { isDefault: true },
+    create: {
+      name: "Anthropic Claude",
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      temperature: 0.3,
+      maxTokens: 8000,
+      isDefault: true,
+      active: true,
+    },
+  });
+
+  await prisma.aIConfig.upsert({
+    where: { name: "OpenAI GPT-4o" },
+    update: { isDefault: false },
+    create: {
+      name: "OpenAI GPT-4o",
+      provider: "openai",
+      model: "gpt-4o",
+      temperature: 0.3,
+      maxTokens: 8000,
+      isDefault: false,
+      active: true,
+    },
+  });
+
   // Editorial standard
   await prisma.editorialStandard.upsert({
     where: { name: "Padrão TI TOTAL" },
