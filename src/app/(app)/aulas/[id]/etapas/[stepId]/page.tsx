@@ -65,6 +65,17 @@ export default function StepExecutionPage() {
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [feedback, setFeedback] = useState({ whatIsWrong: "", whatToChange: "", examples: "" });
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
+  const [aiConfig, setAiConfig] = useState<{ provider: string; model: string; temperature: number } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/ai-config")
+      .then(r => r.json())
+      .then((configs: any[]) => {
+        const def = configs.find((c: any) => c.isDefault) ?? configs[0];
+        if (def) setAiConfig({ provider: def.provider, model: def.model, temperature: def.temperature });
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch(`/api/aulas/${params.id}`)
@@ -553,9 +564,9 @@ export default function StepExecutionPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-xs text-gray-600">
-                  <div className="flex justify-between"><span className="text-gray-500">Provedor</span><span className="font-medium">OpenAI</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">Modelo</span><span className="font-medium">GPT-4o</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">Temperatura</span><span className="font-medium">0.3</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Provedor</span><span className="font-medium capitalize">{aiConfig?.provider ?? "—"}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Modelo</span><span className="font-medium">{aiConfig?.model ?? "—"}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Temperatura</span><span className="font-medium">{aiConfig?.temperature ?? "—"}</span></div>
                 </CardContent>
               </Card>
             )}
