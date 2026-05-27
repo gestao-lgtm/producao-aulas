@@ -370,27 +370,32 @@ export default function StepExecutionPage() {
               </div>
             )}
 
-            {/* Generating spinner */}
-            {isGenerating && (
+            {/* Generating spinner — only when no output yet */}
+            {isGenerating && !output && (
               <Card>
                 <CardContent className="py-12 flex flex-col items-center gap-3">
                   <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
                   <p className="text-sm font-medium text-gray-700">Gerando conteúdo com IA...</p>
-                  <p className="text-xs text-gray-400">Isso pode levar alguns segundos</p>
+                  <p className="text-xs text-gray-400">O texto vai aparecer aqui enquanto a IA escreve</p>
                 </CardContent>
               </Card>
             )}
 
-            {/* Output */}
-            {output && !isGenerating && (
+            {/* Output — visible during streaming too */}
+            {output && (
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-3">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-gray-500" />
-                    <CardTitle className="text-sm">
+                    <CardTitle className="text-sm flex items-center gap-2">
                       {step.stepKey === "PADRONIZACAO_EDITORIAL"
                         ? "Teoria Gerada — Produção da Teoria"
                         : `Output Gerado — v${runVersion}`}
+                      {isGenerating && (
+                        <span className="flex items-center gap-1 text-xs font-normal text-blue-500">
+                          <Loader2 className="h-3 w-3 animate-spin" /> escrevendo...
+                        </span>
+                      )}
                     </CardTitle>
                   </div>
                   <div className="flex gap-2">
