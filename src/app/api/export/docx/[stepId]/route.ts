@@ -136,23 +136,42 @@ type Block =
   | { type: "h1" | "h2" | "h3"; text: string }
   | { type: "bullet"; text: string; level: number }
   | { type: "para"; text: string }
-  | { type: "essencial" | "atencao" | "bizu" | "dica" | "exemplificando" | "esclarecendo" | "questao"; content: string };
+  | { type: "mdtable"; rows: string[][] }
+  | { type: "essencial" | "atencao" | "bizu" | "dica" | "exemplificando" | "esclarecendo" | "questao" | "esquema"; content: string };
 
-const TAG_RE = /\[(ESSENCIAL_DE_PROVA|ATENCAO|BIZU|DICA|EXEMPLIFICANDO|ESCLARECENDO|QUESTAO)\]([\s\S]*?)\[\/\1\]/gi;
+const TAG_RE = /\[(ESSENCIAL_DE_PROVA|ATENCAO|BIZU|DICA|EXEMPLIFICANDO|ESCLARECENDO|QUESTAO|ESQUEMA)\]([\s\S]*?)\[\/\1\]/gi;
 
 function parseBlocks(text: string): Block[] {
   const blocks: Block[] = [];
 
   const pushText = (chunk: string) => {
-    for (const line of chunk.split("\n")) {
-      const l = line.trimEnd();
-      if (!l) continue;
+    const lines = chunk.split("\n");
+    let i = 0;
+    while (i < lines.length) {
+      const l = lines[i].trimEnd();
+      // Detect markdown table (line starts with |)
+      if (l.startsWith("|") && i + 1 < lines.length && /^\|[-| :]+\|/.test(lines[i + 1])) {
+        const tableLines: string[] = [];
+        while (i < lines.length && lines[i].trim().startsWith("|")) {
+          tableLines.push(lines[i]);
+          i++;
+        }
+        const rows = tableLines
+          .filter(row => !/^\|[-| :]+\|/.test(row.trim())) // skip separator row
+          .map(row =>
+            row.split("|").slice(1, -1).map(cell => cell.trim())
+          );
+        if (rows.length > 0) blocks.push({ type: "mdtable", rows });
+        continue;
+      }
+      if (!l) { i++; continue; }
       if (l.startsWith("#### ")) blocks.push({ type: "h3", text: l.slice(5).trim() });
       else if (l.startsWith("### "))  blocks.push({ type: "h3", text: l.slice(4).trim() });
       else if (l.startsWith("## "))   blocks.push({ type: "h2", text: l.slice(3).trim() });
       else if (l.startsWith("# "))    blocks.push({ type: "h1", text: l.slice(2).trim() });
       else if (/^[-•*]\s/.test(l))    blocks.push({ type: "bullet", text: l.replace(/^[-•*]\s*/, "").trim(), level: 0 });
       else                            blocks.push({ type: "para", text: l.trim() });
+      i++;
     }
   };
 
@@ -164,6 +183,7 @@ function parseBlocks(text: string): Block[] {
     EXEMPLIFICANDO:     "exemplificando",
     ESCLARECENDO:       "esclarecendo",
     QUESTAO:            "questao",
+    ESQUEMA:            "esquema",
   };
 
   let last = 0;
@@ -249,6 +269,44 @@ function renderBlocks(blocks: Block[]): (Paragraph | Table)[] {
         out.push(makeBox("📝 QUESTÃO DE PROVA", b.content, C.questaoBg, C.questaoBrd));
         out.push(spacer());
         break;
+      case "esquema":
+        out.push(makeBox("📊 ESQUEMA", b.content, C.essencialBg, C.heading3));
+        out.push(spacer());
+        break;
+      case "mdtable": {
+        const colCount = b.rows[0]?.length ?? 1;
+        const colWidth = Math.floor(9000 / colCount);
+        out.push(new Table({
+          layout: TableLayoutType.FIXED,
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: b.rows.map((row, ri) =>
+            new TableRow({
+              children: row.map(cell =>
+                new TableCell({
+                  width: { size: colWidth, type: WidthType.DXA },
+                  shading: ri === 0
+                    ? { type: ShadingType.CLEAR, fill: "1A4F8A" }
+                    : { type: ShadingType.CLEAR, fill: ri % 2 === 0 ? "F0F4FA" : "FFFFFF" },
+                  margins: {
+                    top:    convertMillimetersToTwip(1.5),
+                    bottom: convertMillimetersToTwip(1.5),
+                    left:   convertMillimetersToTwip(2),
+                    right:  convertMillimetersToTwip(2),
+                  },
+                  children: [new Paragraph({
+                    children: ri === 0
+                      ? [new TextRun({ text: cell.replace(/\*\*/g, ""), bold: true, color: "FFFFFF", size: 20, font: "Segoe UI" })]
+                      : parseInline(cell),
+                    spacing: { after: 0 },
+                  })],
+                })
+              ),
+            })
+          ),
+        }));
+        out.push(spacer());
+        break;
+      }
     }
   }
 

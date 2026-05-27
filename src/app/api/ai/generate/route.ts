@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const maxDuration = 60;
+
 async function callOpenAI(prompt: string, systemPrompt: string, config: any): Promise<string> {
   const { OpenAI } = await import("openai");
   const client = new OpenAI({ apiKey: config.apiKey || process.env.OPENAI_API_KEY });
@@ -255,6 +257,12 @@ exemplo concreto e direto — use após explicação abstrata
 [ESCLARECENDO]
 distinção conceitual, nuance técnica ou complemento importante — não repita a definição
 [/ESCLARECENDO]
+
+[ESQUEMA]
+Tabela comparativa, diagrama textual ou mapa de conceitos.
+Use | col1 | col2 | para tabelas. Use linhas simples para listas comparativas.
+Ideal para: diferenças entre conceitos, classificações, resumos visuais.
+[/ESQUEMA]
 
 [QUESTAO]
 (BANCA – ANO – ÓRGÃO – Cargo) Enunciado completo da questão.
