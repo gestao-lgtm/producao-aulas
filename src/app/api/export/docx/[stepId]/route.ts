@@ -4,8 +4,8 @@ import {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
   Table, TableRow, TableCell, WidthType, BorderStyle,
   ShadingType, AlignmentType, TableLayoutType,
-  convertInchesToTwip, convertMillimetersToTwip,
-  PageNumber, Footer, Header, ImageRun,
+  convertMillimetersToTwip,
+  PageNumber, Footer,
 } from "docx";
 
 // ─── TI TOTAL Brand Colors ──────────────────────────────────────────────────
@@ -319,9 +319,8 @@ export async function GET(
                   alignment: AlignmentType.CENTER,
                   children: [
                     new TextRun({ text: "TI TOTAL — Tecnologia da Informação para Concursos", size: 16, color: "718096", font: "Segoe UI" }),
-                    new TextRun({ text: "    ", size: 16 }),
-                    new TextRun({ text: "Página ", size: 16, color: "718096" }),
-                    new TextRun({ children: [new PageNumber()], size: 16, color: "718096" }),
+                    new TextRun({ text: "    Página ", size: 16, color: "718096" }),
+                    new TextRun({ children: [PageNumber.CURRENT], size: 16, color: "718096" }),
                   ],
                 }),
               ],
@@ -354,8 +353,10 @@ export async function GET(
 
     const buffer = await Packer.toBuffer(doc);
     const filename = `${lesson?.code ?? "teoria"}-teoria.docx`;
+    // Slice to a plain ArrayBuffer so TypeScript's BodyInit types are satisfied
+    const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
 
-    return new NextResponse(buffer, {
+    return new NextResponse(arrayBuffer as ArrayBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
