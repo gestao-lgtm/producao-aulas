@@ -177,27 +177,28 @@ async function main() {
 
   // Workflow steps for FD02
   const stepDefs = [
-    { key: "CADASTRO", title: "Cadastro da Aula", order: 0, isManual: true, isAiEnabled: false, status: "APROVADA" },
-    { key: "SELECAO_QUESTOES", title: "Seleção de Questões", order: 1, isManual: false, isAiEnabled: true, status: "APROVADA" },
-    { key: "CADERNOS_QUESTOES", title: "Cadernos de Questões", order: 2, isManual: false, isAiEnabled: true, status: "APROVADA" },
-    { key: "PREPARACAO_EDITORIAL", title: "Preparação Editorial", order: 3, isManual: false, isAiEnabled: true, status: "APROVADA" },
-    { key: "PRODUCAO_TEORIA", title: "Produção da Teoria", order: 4, isManual: false, isAiEnabled: true, status: "AGUARDANDO_APROVACAO" },
-    { key: "PADRONIZACAO_EDITORIAL", title: "Padronização Editorial", order: 5, isManual: false, isAiEnabled: true, status: "BLOQUEADA" },
-    { key: "COMENTARIOS_QUESTOES", title: "Comentários das Questões", order: 6, isManual: false, isAiEnabled: true, status: "BLOQUEADA" },
-    { key: "MONTAGEM_PDFS", title: "Montagem dos PDFs", order: 7, isManual: false, isAiEnabled: true, status: "BLOQUEADA" },
-    { key: "SLIDES", title: "Slides da Aula", order: 8, isManual: false, isAiEnabled: true, status: "BLOQUEADA" },
-    { key: "REVISAO_HUMANA", title: "Revisão Humana", order: 9, isManual: true, isAiEnabled: false, status: "BLOQUEADA" },
-    { key: "GRAVACAO", title: "Gravação da Aula", order: 10, isManual: true, isAiEnabled: false, status: "BLOQUEADA" },
-    { key: "PUBLICACAO", title: "Publicação", order: 11, isManual: false, isAiEnabled: false, status: "BLOQUEADA" },
+    { key: "CADASTRO",             title: "Cadastro da Aula",            order: 0,  isManual: true,  isAiEnabled: false, status: "APROVADA" },
+    { key: "PRODUCAO_TEORIA",      title: "Produção da Teoria",          order: 1,  isManual: false, isAiEnabled: true,  status: "AGUARDANDO_APROVACAO" },
+    { key: "PADRONIZACAO_EDITORIAL", title: "Padronização Editorial",    order: 2,  isManual: false, isAiEnabled: false, status: "BLOQUEADA" },
+    { key: "SELECAO_QUESTOES",     title: "Seleção de Questões",         order: 3,  isManual: false, isAiEnabled: true,  status: "APROVADA" },
+    { key: "CADERNOS_QUESTOES",    title: "Cadernos de Questões",        order: 4,  isManual: false, isAiEnabled: true,  status: "APROVADA" },
+    { key: "PREPARACAO_EDITORIAL", title: "Preparação Editorial",        order: 5,  isManual: false, isAiEnabled: true,  status: "APROVADA" },
+    { key: "COMENTARIOS_QUESTOES", title: "Comentários das Questões",    order: 6,  isManual: false, isAiEnabled: true,  status: "BLOQUEADA" },
+    { key: "MONTAGEM_PDFS",        title: "Montagem dos PDFs",           order: 7,  isManual: false, isAiEnabled: true,  status: "BLOQUEADA" },
+    { key: "SLIDES",               title: "Slides da Aula",              order: 8,  isManual: false, isAiEnabled: true,  status: "BLOQUEADA" },
+    { key: "REVISAO_HUMANA",       title: "Revisão Humana",              order: 9,  isManual: true,  isAiEnabled: false, status: "BLOQUEADA" },
+    { key: "GRAVACAO",             title: "Gravação da Aula",            order: 10, isManual: true,  isAiEnabled: false, status: "BLOQUEADA" },
+    { key: "PUBLICACAO",           title: "Publicação",                  order: 11, isManual: false, isAiEnabled: false, status: "BLOQUEADA" },
   ];
 
   const steps: Record<string, { id: string }> = {};
   for (const s of stepDefs) {
+    const id = `step-fd02-${s.key.toLowerCase().replace(/_/g, "-")}`;
     const step = await prisma.workflowStep.upsert({
-      where: { id: `step-fd02-${s.order}` },
-      update: { status: s.status as any },
+      where: { id },
+      update: { status: s.status as any, order: s.order },
       create: {
-        id: `step-fd02-${s.order}`,
+        id,
         lessonId: lessonFD02.id,
         stepKey: s.key as any,
         title: s.title,
@@ -284,7 +285,7 @@ async function main() {
     });
   }
 
-  // StepRun for teoria (step 4) - aguardando aprovacao
+  // StepRun for teoria - aguardando aprovacao
   const stepTeoria = steps["PRODUCAO_TEORIA"];
   if (stepTeoria) {
     await prisma.stepRun.upsert({
