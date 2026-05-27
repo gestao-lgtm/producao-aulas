@@ -35,19 +35,17 @@ export async function POST(
         data: { status: "REPROVADA" },
       });
 
-      if (userId) {
-        await prisma.feedback.create({
-          data: {
-            stepRunId: latestRun.id,
-            userId,
-            feedbackText: feedbackText || whatIsWrong,
-            whatIsWrong,
-            whatToChange,
-            examples,
-            urgency: urgency ? parseInt(urgency) : 2,
-          },
-        });
-      }
+      await prisma.feedback.create({
+        data: {
+          stepRunId: latestRun.id,
+          userId: userId || null,
+          feedbackText: feedbackText || whatIsWrong,
+          whatIsWrong,
+          whatToChange,
+          examples,
+          urgency: urgency ? parseInt(urgency) : 2,
+        },
+      });
     }
 
     await prisma.workflowStep.update({
