@@ -271,15 +271,17 @@ export async function GET(
       },
     });
 
-    let outputText = step?.stepRuns[0]?.outputText ?? "";
+    let outputText = "";
 
-    // For PADRONIZACAO_EDITORIAL, use PRODUCAO_TEORIA output
-    if (!outputText && step?.stepKey === "PADRONIZACAO_EDITORIAL") {
+    // For PADRONIZACAO_EDITORIAL, ALWAYS use PRODUCAO_TEORIA output
+    if (step?.stepKey === "PADRONIZACAO_EDITORIAL") {
       const teoriaStep = await prisma.workflowStep.findFirst({
         where: { lessonId: step.lessonId, stepKey: "PRODUCAO_TEORIA" },
         include: { stepRuns: { orderBy: { version: "desc" }, take: 1 } },
       });
       outputText = teoriaStep?.stepRuns[0]?.outputText ?? "";
+    } else {
+      outputText = step?.stepRuns[0]?.outputText ?? "";
     }
 
     if (!outputText) {

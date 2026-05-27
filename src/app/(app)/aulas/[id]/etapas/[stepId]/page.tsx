@@ -265,13 +265,13 @@ export default function StepExecutionPage() {
                   className="gap-2"
                   onClick={() => {
                     const a = document.createElement("a");
-                    a.href = `/api/export/docx/${params.stepId}`;
-                    a.download = `${lesson.code}-teoria.docx`;
+                    a.href = `/api/export/pdf/${params.stepId}`;
+                    a.download = `${lesson.code}-teoria.pdf`;
                     a.click();
                   }}
                 >
                   <FileDown className="h-4 w-4" />
-                  Baixar DOCX — Padrão TI TOTAL
+                  Baixar PDF — Padrão TI TOTAL
                 </Button>
               </div>
             )}
@@ -356,13 +356,13 @@ export default function StepExecutionPage() {
                         variant="outline" size="sm" className="gap-1.5 h-7 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
                         onClick={() => {
                           const a = document.createElement("a");
-                          a.href = `/api/export/docx/${params.stepId}`;
-                          a.download = `${lesson.code}-teoria.docx`;
+                          a.href = `/api/export/pdf/${params.stepId}`;
+                          a.download = `${lesson.code}-teoria.pdf`;
                           a.click();
                         }}
                       >
                         <FileDown className="h-3 w-3" />
-                        Baixar DOCX
+                        Baixar PDF
                       </Button>
                     )}
                   </div>
