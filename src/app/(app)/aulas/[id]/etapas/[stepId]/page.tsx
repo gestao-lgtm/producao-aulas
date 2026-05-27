@@ -141,6 +141,8 @@ export default function StepExecutionPage() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let accumulated = "";
+      let streamCompleted = false;
+      let isPartial = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -157,11 +159,12 @@ export default function StepExecutionPage() {
         if (chunk.includes("__STREAM_END__")) {
           const textPart = chunk.split("__STREAM_END__")[0];
           accumulated += textPart;
-          const metaStr = chunk.split("__STREAM_END__")[1];
           try {
-            const meta = JSON.parse(metaStr);
+            const meta = JSON.parse(chunk.split("__STREAM_END__")[1]);
             if (meta.version) setRunVersion(meta.version);
+            if (meta.partial) isPartial = true;
           } catch {}
+          streamCompleted = true;
           break;
         }
 
@@ -172,7 +175,13 @@ export default function StepExecutionPage() {
       if (accumulated) {
         setOutput(accumulated);
         await reloadStep();
-        toast.success("Conteúdo gerado com sucesso!");
+        if (!streamCompleted) {
+          toast.warning("Geração interrompida — conteúdo parcial salvo. Você pode aprovar ou regenerar.");
+        } else if (isPartial) {
+          toast.warning("Geração concluída parcialmente. Revise o conteúdo antes de aprovar.");
+        } else {
+          toast.success("Conteúdo gerado com sucesso!");
+        }
       }
     } catch {
       toast.error("Erro de conexão — verifique sua internet e tente novamente.");

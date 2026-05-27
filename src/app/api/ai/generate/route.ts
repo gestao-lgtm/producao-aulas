@@ -151,9 +151,21 @@ export async function POST(req: NextRequest) {
           );
         } catch (err) {
           console.error("Streaming AI error:", err);
-          await prisma.stepRun.update({ where: { id: newRun.id }, data: { status: "REPROVADA" } });
-          await prisma.workflowStep.update({ where: { id: stepId }, data: { status: "EM_ANDAMENTO" } });
-          controller.enqueue(encoder.encode("\n\n__STREAM_ERROR__"));
+          if (outputText.length > 200) {
+            // Save whatever was generated so the user sees it
+            await prisma.stepRun.update({
+              where: { id: newRun.id },
+              data: { outputText, status: "AGUARDANDO_APROVACAO" },
+            });
+            await prisma.workflowStep.update({ where: { id: stepId }, data: { status: "AGUARDANDO_APROVACAO" } });
+            controller.enqueue(
+              encoder.encode(`\n\n__STREAM_END__${JSON.stringify({ version: newRun.version, runId: newRun.id, partial: true })}`)
+            );
+          } else {
+            await prisma.stepRun.update({ where: { id: newRun.id }, data: { status: "REPROVADA" } });
+            await prisma.workflowStep.update({ where: { id: stepId }, data: { status: "EM_ANDAMENTO" } });
+            controller.enqueue(encoder.encode("\n\n__STREAM_ERROR__"));
+          }
         } finally {
           controller.close();
         }
