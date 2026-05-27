@@ -165,11 +165,10 @@ export default function StepExecutionPage() {
         toast.error(json.error ?? "Erro ao enviar feedback.");
         return;
       }
-      toast.info("Feedback enviado. Corrija e regere o conteúdo.");
+      toast.info("Feedback enviado. Regenerando com as correções...");
       setShowFeedbackForm(false);
-      setOutput("");
       setFeedback({ whatIsWrong: "", whatToChange: "", examples: "" });
-      await reloadStep();
+      await handleGenerate();
     } catch {
       toast.error("Erro de conexão.");
     }
