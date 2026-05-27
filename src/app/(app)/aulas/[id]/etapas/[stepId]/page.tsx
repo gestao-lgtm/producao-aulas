@@ -130,9 +130,14 @@ export default function StepExecutionPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stepId: params.stepId, lessonId: params.id }),
       });
-      const json = await res.json();
+      let json: any = {};
+      try { json = await res.json(); } catch { /* non-JSON response (e.g. 504 timeout) */ }
       if (!res.ok) {
-        toast.error(json.error ?? "Erro ao gerar conteúdo.");
+        if (res.status === 504 || res.status === 408) {
+          toast.error("Tempo limite excedido. A geração está em andamento — aguarde 30s e recarregue a página.");
+        } else {
+          toast.error(json.error ?? "Erro ao gerar conteúdo.");
+        }
         return;
       }
       if (json.outputText) setOutput(json.outputText);
@@ -140,7 +145,7 @@ export default function StepExecutionPage() {
       await reloadStep();
       toast.success("Conteúdo gerado com sucesso!");
     } catch {
-      toast.error("Erro de conexão ao gerar conteúdo.");
+      toast.error("Erro de conexão — verifique sua internet e tente novamente.");
     } finally {
       setIsGenerating(false);
     }
