@@ -389,6 +389,16 @@ export default function StepExecutionPage() {
             {/* Approval Buttons */}
             {!showFeedbackForm && step.status !== "APROVADA" && (
               <div className="flex items-center gap-3 justify-end pt-2">
+                {!step.isManual && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-gray-400 hover:text-gray-600 text-xs"
+                    onClick={handleApprove}
+                  >
+                    Pular esta etapa
+                  </Button>
+                )}
                 {output && !step.isManual && (
                   <Button
                     variant="outline"
