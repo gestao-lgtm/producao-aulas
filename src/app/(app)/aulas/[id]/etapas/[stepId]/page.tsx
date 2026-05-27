@@ -351,7 +351,7 @@ export default function StepExecutionPage() {
                       <Download className="h-3 w-3" />
                       Exportar .txt
                     </Button>
-                    {(step.stepKey === "PRODUCAO_TEORIA" || step.stepKey === "PADRONIZACAO_EDITORIAL") && (
+                    {step.stepKey === "PADRONIZACAO_EDITORIAL" && (
                       <Button
                         variant="outline" size="sm" className="gap-1.5 h-7 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
                         onClick={() => {
