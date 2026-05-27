@@ -74,10 +74,20 @@ export default function StepExecutionPage() {
         const s = (data.workflowSteps ?? []).find((s: any) => s.id === params.stepId);
         if (s) {
           setStep(s);
-          const latestRun = (s.stepRuns ?? [])[0];
-          if (latestRun?.outputText) {
-            setOutput(latestRun.outputText);
-            setRunVersion(latestRun.version ?? 1);
+          // For PADRONIZACAO_EDITORIAL, always show PRODUCAO_TEORIA output
+          if (s.stepKey === "PADRONIZACAO_EDITORIAL") {
+            const teoriaStep = (data.workflowSteps ?? []).find((ws: any) => ws.stepKey === "PRODUCAO_TEORIA");
+            const teoriaRun = (teoriaStep?.stepRuns ?? [])[0];
+            if (teoriaRun?.outputText) {
+              setOutput(teoriaRun.outputText);
+              setRunVersion(teoriaRun.version ?? 1);
+            }
+          } else {
+            const latestRun = (s.stepRuns ?? [])[0];
+            if (latestRun?.outputText) {
+              setOutput(latestRun.outputText);
+              setRunVersion(latestRun.version ?? 1);
+            }
           }
         }
       })
@@ -291,8 +301,8 @@ export default function StepExecutionPage() {
               </div>
             )}
 
-            {/* AI step: generate button */}
-            {!step.isManual && !output && !isGenerating && (
+            {/* AI step: generate button — hidden for PADRONIZACAO_EDITORIAL */}
+            {!step.isManual && step.stepKey !== "PADRONIZACAO_EDITORIAL" && !output && !isGenerating && (
               <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/50 py-12 gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
                   <Sparkles className="h-7 w-7 text-blue-600" />
@@ -331,29 +341,37 @@ export default function StepExecutionPage() {
                 <CardHeader className="flex flex-row items-center justify-between pb-3">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-gray-500" />
-                    <CardTitle className="text-sm">Output Gerado — v{runVersion}</CardTitle>
+                    <CardTitle className="text-sm">
+                      {step.stepKey === "PADRONIZACAO_EDITORIAL"
+                        ? "Teoria Gerada — Produção da Teoria"
+                        : `Output Gerado — v${runVersion}`}
+                    </CardTitle>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={handleGenerate}>
-                      <RotateCcw className="h-3 w-3" />
-                      Regenerar
-                    </Button>
-                    <Button
-                      variant="outline" size="sm" className="gap-1.5 h-7 text-xs"
-                      onClick={() => {
-                        const blob = new Blob([output], { type: "text/plain" });
-                        const a = document.createElement("a");
-                        a.href = URL.createObjectURL(blob);
-                        a.download = `${lesson.code}-${step.stepKey}.txt`;
-                        a.click();
-                      }}
-                    >
-                      <Download className="h-3 w-3" />
-                      Exportar .txt
-                    </Button>
+                    {step.stepKey !== "PADRONIZACAO_EDITORIAL" && (
+                      <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={handleGenerate}>
+                        <RotateCcw className="h-3 w-3" />
+                        Regenerar
+                      </Button>
+                    )}
+                    {step.stepKey !== "PADRONIZACAO_EDITORIAL" && (
+                      <Button
+                        variant="outline" size="sm" className="gap-1.5 h-7 text-xs"
+                        onClick={() => {
+                          const blob = new Blob([output], { type: "text/plain" });
+                          const a = document.createElement("a");
+                          a.href = URL.createObjectURL(blob);
+                          a.download = `${lesson.code}-${step.stepKey}.txt`;
+                          a.click();
+                        }}
+                      >
+                        <Download className="h-3 w-3" />
+                        Exportar .txt
+                      </Button>
+                    )}
                     {step.stepKey === "PADRONIZACAO_EDITORIAL" && (
                       <Button
-                        variant="outline" size="sm" className="gap-1.5 h-7 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                        size="sm" className="gap-1.5 h-7 text-xs bg-blue-700 hover:bg-blue-800 text-white"
                         onClick={() => {
                           const a = document.createElement("a");
                           a.href = `/api/export/pdf/${params.stepId}`;
@@ -439,7 +457,7 @@ export default function StepExecutionPage() {
                     Pular esta etapa
                   </Button>
                 )}
-                {output && !step.isManual && (
+                {output && !step.isManual && step.stepKey !== "PADRONIZACAO_EDITORIAL" && (
                   <Button
                     variant="outline"
                     className="gap-2 border-red-200 text-red-600 hover:bg-red-50"
