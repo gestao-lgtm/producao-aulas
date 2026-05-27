@@ -196,7 +196,7 @@ export default function StepExecutionPage() {
 
   const checklistItems = STEP_CHECKLISTS[step.stepKey] ?? [];
   const allChecked = checklistItems.length === 0 || checklistItems.every(item => checklist[item]);
-  const canApprove = step.isManual || !!output;
+  const canApprove = true; // always allow approve/skip
 
   return (
     <div className="pt-16">
@@ -280,6 +280,10 @@ export default function StepExecutionPage() {
                 <Button onClick={handleGenerate} className="gap-2">
                   <Sparkles className="h-4 w-4" />
                   Gerar com IA
+                </Button>
+                <Button variant="outline" size="sm" className="text-gray-500 gap-1.5" onClick={handleApprove}>
+                  <ChevronLeft className="h-3.5 w-3.5 rotate-180" />
+                  Pular esta etapa
                 </Button>
               </div>
             )}
@@ -383,9 +387,9 @@ export default function StepExecutionPage() {
             )}
 
             {/* Approval Buttons */}
-            {canApprove && !showFeedbackForm && step.status !== "APROVADA" && (
+            {!showFeedbackForm && step.status !== "APROVADA" && (
               <div className="flex items-center gap-3 justify-end pt-2">
-                {!step.isManual && output && (
+                {output && !step.isManual && (
                   <Button
                     variant="outline"
                     className="gap-2 border-red-200 text-red-600 hover:bg-red-50"
@@ -399,10 +403,10 @@ export default function StepExecutionPage() {
                   variant="success"
                   className="gap-2"
                   onClick={handleApprove}
-                  disabled={checklistItems.length > 0 && !allChecked}
+                  disabled={output ? (checklistItems.length > 0 && !allChecked) : false}
                 >
                   <CheckCircle className="h-4 w-4" />
-                  {step.isManual ? "Marcar como Concluído" : "Aprovar Etapa"}
+                  {step.isManual ? "Marcar como Concluído" : output ? "Aprovar Etapa" : "Pular e Aprovar"}
                 </Button>
               </div>
             )}
