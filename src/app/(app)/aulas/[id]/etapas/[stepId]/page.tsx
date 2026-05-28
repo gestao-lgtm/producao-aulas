@@ -243,16 +243,21 @@ export default function StepExecutionPage() {
 
   const handleOpenGdocs = async () => {
     setIsExportingGdocs(true);
+    // Open blank tab immediately (same user gesture) to avoid popup blocker
+    const win = window.open("about:blank", "_blank");
     try {
       const res = await fetch(`/api/export/gdocs/${params.stepId}`);
       if (!res.ok) {
+        win?.close();
         const j = await res.json().catch(() => ({}));
         toast.error(j.error ?? "Erro ao exportar para Google Docs.");
         return;
       }
       const { url } = await res.json();
-      window.open(url, "_blank");
+      if (win) win.location.href = url;
+      else window.open(url, "_blank");
     } catch {
+      win?.close();
       toast.error("Erro de conexão ao exportar para Google Docs.");
     } finally {
       setIsExportingGdocs(false);
