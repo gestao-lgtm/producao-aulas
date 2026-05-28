@@ -293,8 +293,46 @@ class DocBuilder {
     this.stylePara(sp, this.index, { spaceBelow: { magnitude: 6, unit: "PT" } }, "spaceBelow");
   }
 
-  addCover(lessonCode: string, lessonTitle: string) {
-    // Dark cover page
+  addCover(lessonCode: string, lessonTitle: string, imageUrl?: string) {
+    if (imageUrl) {
+      // Full-page cover image (A4 width = 453pt after 2.5cm margins each side)
+      this.requests.push({
+        insertInlineImage: {
+          location: { index: this.index },
+          uri: imageUrl,
+          objectSize: {
+            width:  { magnitude: 453, unit: "PT" },
+            height: { magnitude: 641, unit: "PT" },
+          },
+        },
+      });
+      this.index += 1; // image takes 1 structural index
+      // Paragraph after image
+      const imgParaStart = this.index;
+      this.insertText("\n");
+      this.stylePara(imgParaStart, this.index, {
+        spaceAbove: { magnitude: 0, unit: "PT" },
+        spaceBelow: { magnitude: 0, unit: "PT" },
+      }, "spaceAbove,spaceBelow");
+      // Lesson subtitle under image
+      const subStart = this.index;
+      this.insertText(`${lessonCode} — ${lessonTitle}\n`);
+      const subEnd = this.index;
+      this.stylePara(subStart, subEnd, {
+        alignment: "CENTER",
+        spaceAbove: { magnitude: 12, unit: "PT" },
+        spaceBelow: { magnitude: 0, unit: "PT" },
+        shading: { backgroundColor: { color: { rgbColor: C.coverBg } } },
+      }, "alignment,spaceAbove,spaceBelow,shading");
+      this.styleText(subStart, subEnd - 1, {
+        bold: true, fontSize: { magnitude: 14, unit: "PT" },
+        foregroundColor: { color: { rgbColor: C.white } },
+        weightedFontFamily: { fontFamily: "Montserrat" },
+      }, "bold,fontSize,foregroundColor,weightedFontFamily");
+      return;
+    }
+
+    // Fallback: dark text cover if no image URL
     const start = this.index;
     // Spacer lines to push content down visually
     this.insertText("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
@@ -567,8 +605,11 @@ export async function GET(
     // 3. Build document
     const builder = new DocBuilder();
 
-    // Cover page
-    builder.addCover(lesson?.code ?? "", lesson?.title ?? "");
+    // Cover page — use public image if available
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL
+      ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+    const coverImageUrl = appUrl ? `${appUrl}/capa-ti-total.png` : undefined;
+    builder.addCover(lesson?.code ?? "", lesson?.title ?? "", coverImageUrl);
 
     // TOC (with page break before)
     if (tocHeadings.length > 0) {
