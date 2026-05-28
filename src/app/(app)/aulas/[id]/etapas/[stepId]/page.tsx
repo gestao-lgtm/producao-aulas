@@ -42,6 +42,58 @@ const STEP_CHECKLISTS: Record<string, string[]> = {
   ],
 };
 
+type ChecklistGroup = { group: string; items: string[] };
+
+const STEP_CHECKLIST_GROUPS: Record<string, ChecklistGroup[]> = {
+  PADRONIZACAO_EDITORIAL: [
+    {
+      group: "Layout",
+      items: ["Página A4", "Margens corretas", "Espaçamento correto", "Recuos corretos"],
+    },
+    {
+      group: "Tipografia",
+      items: ["Títulos em Montserrat", "Corpo em Segoe UI 12", "Hierarquia visual correta"],
+    },
+    {
+      group: "Cabeçalho / Rodapé",
+      items: ["Linha no cabeçalho", "Logo no rodapé centralizado", "Numeração de páginas correta"],
+    },
+    {
+      group: "Cores semânticas",
+      items: [
+        "Azul usado corretamente",
+        "Vermelho usado corretamente",
+        "Azul somente para núcleo conceitual",
+        "Vermelho somente para negação conceitual",
+      ],
+    },
+    {
+      group: "Quadros",
+      items: [
+        "Essencial de Prova padronizado",
+        "Atenção padronizado",
+        "Bizu padronizado",
+        "Dica padronizada",
+        "Exemplificando padronizado",
+        "Esclarecendo padronizado",
+      ],
+    },
+    {
+      group: "Esquemas",
+      items: [
+        "Esquemas em padrão TI TOTAL",
+        "Paleta azul respeitada",
+        "Progressão visual correta",
+        "Cores sem excesso decorativo",
+      ],
+    },
+    {
+      group: "Qualidade editorial",
+      items: ["Sem erros de markdown (*, [[]], etc.)"],
+    },
+  ],
+};
+
 const STEP_DESCRIPTIONS: Record<string, string> = {
   CADASTRO: "Etapa manual de cadastro da arquitetura pedagógica da aula. Revise os dados e aprove para liberar a produção.",
   PRODUCAO_TEORIA: "A IA produz o material teórico completo da aula seguindo o padrão TI TOTAL, com caixas de destaque (Essencial de Prova, Atenção, Bizu, Dica) e destaques semânticos em azul (o que é) e vermelho (o que não é).",
@@ -284,7 +336,11 @@ export default function StepExecutionPage() {
   }
 
   const checklistItems = STEP_CHECKLISTS[step.stepKey] ?? [];
-  const allChecked = checklistItems.length === 0 || checklistItems.every(item => checklist[item]);
+  const checklistGroups = STEP_CHECKLIST_GROUPS[step.stepKey] ?? [];
+  const allChecklistItems = checklistGroups.length > 0
+    ? checklistGroups.flatMap(g => g.items)
+    : checklistItems;
+  const allChecked = allChecklistItems.length === 0 || allChecklistItems.every(item => checklist[item]);
   const canApprove = true; // always allow approve/skip
 
   return (
@@ -602,7 +658,7 @@ export default function StepExecutionPage() {
                   variant="success"
                   className="gap-2"
                   onClick={handleApprove}
-                  disabled={output ? (checklistItems.length > 0 && !allChecked) : false}
+                  disabled={output ? (allChecklistItems.length > 0 && !allChecked) : false}
                 >
                   <CheckCircle className="h-4 w-4" />
                   {step.isManual ? "Marcar como Concluído" : output ? "Aprovar Etapa" : "Pular e Aprovar"}
@@ -624,30 +680,61 @@ export default function StepExecutionPage() {
           {/* Sidebar */}
           <div className="space-y-4">
             {/* Checklist */}
-            {checklistItems.length > 0 && (
+            {(checklistItems.length > 0 || checklistGroups.length > 0) && (
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm">Checklist de Qualidade</CardTitle>
                   <p className="text-xs text-gray-400">Marque todos os itens antes de aprovar</p>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {checklistItems.map(item => (
-                    <label key={item} className="flex items-start gap-2.5 cursor-pointer group">
-                      <div
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border mt-0.5 transition-colors ${
-                          checklist[item] ? "bg-blue-600 border-blue-600" : "border-gray-300 group-hover:border-blue-400"
-                        }`}
-                        onClick={() => setChecklist(c => ({ ...c, [item]: !c[item] }))}
-                      >
-                        {checklist[item] && <Check className="h-2.5 w-2.5 text-white" />}
-                      </div>
-                      <span className={`text-xs leading-relaxed ${checklist[item] ? "line-through text-gray-400" : "text-gray-600"}`}>
-                        {item}
-                      </span>
-                    </label>
-                  ))}
+                  {/* Grouped checklist (e.g. PADRONIZACAO_EDITORIAL) */}
+                  {checklistGroups.length > 0 ? (
+                    <div className="space-y-3">
+                      {checklistGroups.map(({ group, items }) => (
+                        <div key={group}>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
+                            {group}
+                          </p>
+                          <div className="space-y-1.5">
+                            {items.map(item => (
+                              <label key={item} className="flex items-start gap-2.5 cursor-pointer group">
+                                <div
+                                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border mt-0.5 transition-colors ${
+                                    checklist[item] ? "bg-blue-600 border-blue-600" : "border-gray-300 group-hover:border-blue-400"
+                                  }`}
+                                  onClick={() => setChecklist(c => ({ ...c, [item]: !c[item] }))}
+                                >
+                                  {checklist[item] && <Check className="h-2.5 w-2.5 text-white" />}
+                                </div>
+                                <span className={`text-xs leading-relaxed ${checklist[item] ? "line-through text-gray-400" : "text-gray-600"}`}>
+                                  {item}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Flat checklist */
+                    checklistItems.map(item => (
+                      <label key={item} className="flex items-start gap-2.5 cursor-pointer group">
+                        <div
+                          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border mt-0.5 transition-colors ${
+                            checklist[item] ? "bg-blue-600 border-blue-600" : "border-gray-300 group-hover:border-blue-400"
+                          }`}
+                          onClick={() => setChecklist(c => ({ ...c, [item]: !c[item] }))}
+                        >
+                          {checklist[item] && <Check className="h-2.5 w-2.5 text-white" />}
+                        </div>
+                        <span className={`text-xs leading-relaxed ${checklist[item] ? "line-through text-gray-400" : "text-gray-600"}`}>
+                          {item}
+                        </span>
+                      </label>
+                    ))
+                  )}
                   <div className="pt-2 mt-2 border-t border-gray-100 text-xs text-gray-500 flex justify-between">
-                    <span>{Object.values(checklist).filter(Boolean).length}/{checklistItems.length} marcados</span>
+                    <span>{Object.values(checklist).filter(Boolean).length}/{allChecklistItems.length} marcados</span>
                     {allChecked && <span className="text-green-600 font-medium flex items-center gap-1"><Check className="h-3 w-3" /> Pronto</span>}
                   </div>
                 </CardContent>
