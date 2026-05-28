@@ -31,36 +31,36 @@ function getAuth() {
   return oauth2;
 }
 
-// ─── Brand colors (hex without #) ────────────────────────────────────────────
+// ─── Brand colors — Google Docs API uses red/green/blue (not r/g/b) ──────────
 const C = {
-  h1bg:        { r: 0.102, g: 0.227, b: 0.361 }, // #1A3A5C
-  h2bg:        { r: 0.102, g: 0.310, b: 0.541 }, // #1A4F8A
-  h3:          { r: 0.173, g: 0.435, b: 0.675 }, // #2C6FAC
-  white:       { r: 1,     g: 1,     b: 1     },
-  body:        { r: 0.102, g: 0.125, b: 0.173 }, // #1A202C
-  azul:        { r: 0.102, g: 0.310, b: 0.541 }, // #1A4F8A
-  vermelho:    { r: 0.753, g: 0.224, b: 0.169 }, // #C0392B
-  gray:        { r: 0.443, g: 0.502, b: 0.588 },
-  ruleBg:      { r: 0.816, g: 0.863, b: 0.941 }, // #D0DCF0
+  h1bg:        { red: 0.102, green: 0.227, blue: 0.361 }, // #1A3A5C
+  h2bg:        { red: 0.102, green: 0.310, blue: 0.541 }, // #1A4F8A
+  h3:          { red: 0.173, green: 0.435, blue: 0.675 }, // #2C6FAC
+  white:       { red: 1,     green: 1,     blue: 1     },
+  body:        { red: 0.102, green: 0.125, blue: 0.173 }, // #1A202C
+  azul:        { red: 0.102, green: 0.310, blue: 0.541 }, // #1A4F8A
+  vermelho:    { red: 0.753, green: 0.224, blue: 0.169 }, // #C0392B
+  gray:        { red: 0.443, green: 0.502, blue: 0.588 },
+  ruleBg:      { red: 0.816, green: 0.863, blue: 0.941 }, // #D0DCF0
   // Box backgrounds
-  essencialBg: { r: 0.910, g: 0.941, b: 0.984 },
-  atencaoBg:   { r: 1.000, g: 0.973, b: 0.902 },
-  bizuBg:      { r: 0.918, g: 0.957, b: 0.918 },
-  dicaBg:      { r: 0.918, g: 0.957, b: 0.984 },
-  exemploBg:   { r: 0.941, g: 0.980, b: 0.957 },
-  esclareceBg: { r: 0.957, g: 0.941, b: 0.984 },
-  questaoBg:   { r: 0.980, g: 0.980, b: 0.980 },
-  // Box border left colors
-  essencialBrd:{ r: 0.102, g: 0.227, b: 0.361 },
-  atencaoBrd:  { r: 0.769, g: 0.490, b: 0.055 },
-  bizuBrd:     { r: 0.153, g: 0.682, b: 0.376 },
-  dicaBrd:     { r: 0.161, g: 0.502, b: 0.725 },
-  exemploBrd:  { r: 0.118, g: 0.518, b: 0.286 },
-  esclareceBrd:{ r: 0.490, g: 0.235, b: 0.596 },
-  questaoBrd:  { r: 0.337, g: 0.396, b: 0.451 },
+  essencialBg: { red: 0.910, green: 0.941, blue: 0.984 },
+  atencaoBg:   { red: 1.000, green: 0.973, blue: 0.902 },
+  bizuBg:      { red: 0.918, green: 0.957, blue: 0.918 },
+  dicaBg:      { red: 0.918, green: 0.957, blue: 0.984 },
+  exemploBg:   { red: 0.941, green: 0.980, blue: 0.957 },
+  esclareceBg: { red: 0.957, green: 0.941, blue: 0.984 },
+  questaoBg:   { red: 0.980, green: 0.980, blue: 0.980 },
+  // Box accent colors
+  essencialBrd:{ red: 0.102, green: 0.227, blue: 0.361 },
+  atencaoBrd:  { red: 0.769, green: 0.490, blue: 0.055 },
+  bizuBrd:     { red: 0.153, green: 0.682, blue: 0.376 },
+  dicaBrd:     { red: 0.161, green: 0.502, blue: 0.725 },
+  exemploBrd:  { red: 0.118, green: 0.518, blue: 0.286 },
+  esclareceBrd:{ red: 0.490, green: 0.235, blue: 0.596 },
+  questaoBrd:  { red: 0.337, green: 0.396, blue: 0.451 },
 };
 
-type Color = { r: number; g: number; b: number };
+type Color = { red: number; green: number; blue: number };
 
 // ─── Block types ──────────────────────────────────────────────────────────────
 type Block =
