@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { TITotalRenderer } from "@/components/lessons/ti-total-renderer";
 
 const STEP_ICONS: Record<string, string> = {
   CADASTRO: "📋", SELECAO_QUESTOES: "🔍", CADERNOS_QUESTOES: "📚",
@@ -573,10 +574,8 @@ export default function StepExecutionPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-5 max-h-[500px] overflow-y-auto">
-                    <pre className="whitespace-pre-wrap text-xs text-gray-700 font-sans leading-relaxed">
-                      {output}
-                    </pre>
+                  <div className="rounded-lg bg-white border border-gray-200 p-5 max-h-[500px] overflow-y-auto">
+                    <TITotalRenderer text={output} />
                   </div>
                 </CardContent>
               </Card>
