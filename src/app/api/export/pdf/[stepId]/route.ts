@@ -1,67 +1,72 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// ─── TI TOTAL Brand Colors (RGB) ────────────────────────────────────────────
+// ─── Brand palette (RGB) ──────────────────────────────────────────────────────
 const C = {
-  heading1:     [26,  58,  92],  // #1A3A5C
-  heading2:     [26,  79, 138],  // #1A4F8A
-  heading3:     [44, 111, 172],  // #2C6FAC
-  body:         [26,  32,  44],  // #1A202C
-  azul:         [26,  79, 138],  // #1A4F8A
-  vermelho:     [192, 57,  43],  // #C0392B
-  gray:         [113,128,150],   // #718096
-  // Box backgrounds
-  essencialBg:  [232,240,251],   // #E8F0FB
-  essencialBrd: [26,  79,138],   // #1A4F8A
-  atencaoBg:    [255,248,230],   // #FFF8E6
-  atencaoBrd:   [212,134, 10],   // #D4860A
-  bizuBg:       [234,245,234],   // #EAF5EA
-  bizuBrd:      [39, 174, 96],   // #27AE60
-  dicaBg:       [234,244,251],   // #EAF4FB
-  dicaBrd:      [41, 128,185],   // #2980B9
-  exemploBg:    [240,250,244],   // #F0FAF4
-  exemploBrd:   [30, 132, 73],   // #1E8449
-  esclareceBg:  [245,245,245],   // #F5F5F5
-  esclareceBrd: [127,140,141],   // #7F8C8D
-  questaoBg:    [250,250,250],   // #FAFAFA
-  questaoBrd:   [86,  101,115],  // #566573
+  h1bg:         [26,  58,  92] as RGB,  // #1A3A5C
+  h2bg:         [26,  79, 138] as RGB,  // #1A4F8A
+  h3:           [44, 111, 172] as RGB,  // #2C6FAC
+  body:         [26,  32,  44] as RGB,  // #1A202C
+  azul:         [26,  79, 138] as RGB,  // #1A4F8A
+  vermelho:     [192, 57,  43] as RGB,  // #C0392B
+  gray:         [113,128,150] as RGB,
+  rule:         [208,220,240] as RGB,
+  essencialBg:  [232,240,251] as RGB, essencialBrd: [26,  79,138] as RGB,
+  atencaoBg:    [255,248,230] as RGB, atencaoBrd:   [196,125, 14] as RGB,
+  bizuBg:       [234,245,234] as RGB, bizuBrd:      [39, 174, 96] as RGB,
+  dicaBg:       [234,244,251] as RGB, dicaBrd:      [41, 128,185] as RGB,
+  exemploBg:    [240,250,244] as RGB, exemploBrd:   [30, 132, 73] as RGB,
+  esclareceBg:  [245,240,251] as RGB, esclareceBrd: [125, 60,152] as RGB,
+  questaoBg:    [250,250,250] as RGB, questaoBrd:   [86, 101,115] as RGB,
+  esquemaBg:    [232,240,251] as RGB, esquemaBrd:   [26,  79,138] as RGB,
 };
 
 type RGB = [number, number, number];
 
-// ─── Parser ──────────────────────────────────────────────────────────────────
+// ─── Block types ──────────────────────────────────────────────────────────────
 type Block =
   | { type: "h1" | "h2" | "h3"; text: string }
-  | { type: "bullet"; text: string; level: number }
+  | { type: "bullet"; text: string }
   | { type: "para"; text: string }
-  | { type: "essencial" | "atencao" | "bizu" | "dica" | "exemplificando" | "esclarecendo" | "questao"; content: string };
+  | { type: "hr" }
+  | { type: "mdtable"; rows: string[][] }
+  | { type: "essencial"|"atencao"|"bizu"|"dica"|"exemplificando"|"esclarecendo"|"questao"|"esquema"; content: string };
 
-const TAG_RE = /\[(ESSENCIAL_DE_PROVA|ATENCAO|BIZU|DICA|EXEMPLIFICANDO|ESCLARECENDO|QUESTAO)\]([\s\S]*?)\[\/\1\]/gi;
+const TAG_RE = /\[(ESSENCIAL_DE_PROVA|ATENCAO|BIZU|DICA|EXEMPLIFICANDO|ESCLARECENDO|QUESTAO|ESQUEMA)\]([\s\S]*?)\[\/\1\]/gi;
+
+const TAG_MAP: Record<string, Block["type"]> = {
+  ESSENCIAL_DE_PROVA: "essencial", ATENCAO: "atencao", BIZU: "bizu",
+  DICA: "dica", EXEMPLIFICANDO: "exemplificando", ESCLARECENDO: "esclarecendo",
+  QUESTAO: "questao", ESQUEMA: "esquema",
+};
 
 function parseBlocks(text: string): Block[] {
   const blocks: Block[] = [];
 
   const pushText = (chunk: string) => {
-    for (const line of chunk.split("\n")) {
-      const l = line.trimEnd();
-      if (!l) continue;
-      if (l.startsWith("#### ")) blocks.push({ type: "h3", text: l.slice(5).trim() });
-      else if (l.startsWith("### "))  blocks.push({ type: "h3", text: l.slice(4).trim() });
-      else if (l.startsWith("## "))   blocks.push({ type: "h2", text: l.slice(3).trim() });
-      else if (l.startsWith("# "))    blocks.push({ type: "h1", text: l.slice(2).trim() });
-      else if (/^[-•*]\s/.test(l))    blocks.push({ type: "bullet", text: l.replace(/^[-•*]\s*/, "").trim(), level: 0 });
-      else                            blocks.push({ type: "para", text: l.trim() });
+    const lines = chunk.split("\n");
+    let i = 0;
+    while (i < lines.length) {
+      const l = lines[i].trimEnd();
+      // Detect markdown table
+      if (l.startsWith("|") && i + 1 < lines.length && /^\|[-| :]+\|/.test(lines[i + 1])) {
+        const tableLines: string[] = [];
+        while (i < lines.length && lines[i].trim().startsWith("|")) tableLines.push(lines[i++]);
+        const rows = tableLines
+          .filter(r => !/^\|[-| :]+\|/.test(r.trim()))
+          .map(r => r.split("|").slice(1, -1).map(c => c.trim()));
+        if (rows.length) blocks.push({ type: "mdtable", rows });
+        continue;
+      }
+      if (!l) { i++; continue; }
+      if (l === "---" || l === "***" || l === "___") blocks.push({ type: "hr" });
+      else if (l.startsWith("#### ") || l.startsWith("### ")) blocks.push({ type: "h3", text: l.replace(/^#{3,4}\s/, "") });
+      else if (l.startsWith("## ")) blocks.push({ type: "h2", text: l.slice(3) });
+      else if (l.startsWith("# "))  blocks.push({ type: "h1", text: l.slice(2) });
+      else if (/^[-•*]\s/.test(l))  blocks.push({ type: "bullet", text: l.replace(/^[-•*]\s*/, "") });
+      else                          blocks.push({ type: "para", text: l.trim() });
+      i++;
     }
-  };
-
-  const tagMap: Record<string, Block["type"]> = {
-    ESSENCIAL_DE_PROVA: "essencial",
-    ATENCAO:            "atencao",
-    BIZU:               "bizu",
-    DICA:               "dica",
-    EXEMPLIFICANDO:     "exemplificando",
-    ESCLARECENDO:       "esclarecendo",
-    QUESTAO:            "questao",
   };
 
   let last = 0;
@@ -69,379 +74,288 @@ function parseBlocks(text: string): Block[] {
   TAG_RE.lastIndex = 0;
   while ((m = TAG_RE.exec(text)) !== null) {
     if (m.index > last) pushText(text.slice(last, m.index));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    blocks.push({ type: tagMap[m[1].toUpperCase()], content: m[2].trim() } as any);
+    blocks.push({ type: TAG_MAP[m[1].toUpperCase()] as any, content: m[2].trim() });
     last = m.index + m[0].length;
   }
   if (last < text.length) pushText(text.slice(last));
   return blocks;
 }
 
-// ─── Inline segment type ──────────────────────────────────────────────────────
-type Segment = { text: string; bold: boolean; color: readonly number[] };
+// ─── Inline segments ──────────────────────────────────────────────────────────
+type Seg = { text: string; bold: boolean; color: RGB };
 
-function parseInlineSegments(line: string): Segment[] {
-  const segments: Segment[] = [];
+function parseInline(line: string): Seg[] {
+  const segs: Seg[] = [];
   const re = /\[\[AZUL:(.*?)\]\]|\[\[VERMELHO:(.*?)\]\]|\*\*(.*?)\*\*/g;
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(line)) !== null) {
-    if (m.index > last) {
-      segments.push({ text: line.slice(last, m.index), bold: false, color: C.body });
-    }
-    if (m[1] !== undefined) {
-      segments.push({ text: m[1], bold: true, color: C.azul });
-    } else if (m[2] !== undefined) {
-      segments.push({ text: m[2], bold: true, color: C.vermelho });
-    } else if (m[3] !== undefined) {
-      segments.push({ text: m[3], bold: true, color: C.body });
-    }
+    if (m.index > last) segs.push({ text: line.slice(last, m.index), bold: false, color: C.body });
+    if      (m[1] !== undefined) segs.push({ text: m[1], bold: true,  color: C.azul });
+    else if (m[2] !== undefined) segs.push({ text: m[2], bold: true,  color: C.vermelho });
+    else if (m[3] !== undefined) segs.push({ text: m[3], bold: true,  color: C.body });
     last = m.index + m[0].length;
   }
-  if (last < line.length) {
-    segments.push({ text: line.slice(last), bold: false, color: C.body });
-  }
-  return segments.length ? segments : [{ text: line, bold: false, color: C.body }];
+  if (last < line.length) segs.push({ text: line.slice(last), bold: false, color: C.body });
+  return segs.length ? segs : [{ text: line, bold: false, color: C.body }];
 }
 
-// ─── PDF Renderer ─────────────────────────────────────────────────────────────
-function rgbArr(col: readonly number[]): RGB {
-  return [col[0], col[1], col[2]];
-}
-
-interface PdfDoc {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any;
-}
-
-function buildPdf(
-  blocks: Block[],
-  lessonCode: string,
-  disciplineName: string,
-): Buffer {
-  // jsPDF uses CommonJS require in Next.js server context
+// ─── PDF builder ──────────────────────────────────────────────────────────────
+function buildPdf(blocks: Block[], lessonCode: string, lessonTitle: string, disciplineName: string): Buffer {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { jsPDF } = require("jspdf");
 
-  const PAGE_W = 210;        // A4 width mm
-  const PAGE_H = 297;        // A4 height mm
-  const MARGIN = 20;         // mm all sides
-  const CONTENT_W = PAGE_W - MARGIN * 2;  // 170mm
-  const FOOTER_H = 10;       // mm reserved at bottom
-  const BODY_FONT_SIZE = 11; // pt
-  const LINE_SPACING = 1.15;
-  const PARA_GAP = 2;        // mm between paragraphs
+  const PW = 210, PH = 297, M = 20, CW = PW - M * 2;
+  const BODY = 11, LH_MULT = 1.15, GAP = 2;
+  const ptMm = (pt: number) => pt * 0.352778;
+  const lh = (pt: number) => ptMm(pt) * LH_MULT;
 
-  const doc: PdfDoc = new jsPDF({ unit: "mm", format: "a4" });
+  const doc = new jsPDF({ unit: "mm", format: "a4" }) as any;
+  let y = M;
+  let pg = 1;
 
-  let currentY = MARGIN;
-  let pageNum = 1;
-
-  // ── Helpers ──────────────────────────────────────────────────────────────
-
-  function ptToMm(pt: number): number {
-    return pt * 0.352778;
-  }
-
-  function lineHeightMm(fontSize: number): number {
-    return ptToMm(fontSize) * LINE_SPACING;
-  }
-
-  function checkPageBreak(needed: number) {
-    const bottomLimit = PAGE_H - MARGIN - FOOTER_H;
-    if (currentY + needed > bottomLimit) {
-      doc.addPage();
-      pageNum++;
-      currentY = MARGIN;
-      drawFooter();
-    }
+  function checkBreak(need: number) {
+    if (y + need > PH - M - 10) { doc.addPage(); pg++; y = M; drawFooter(); }
   }
 
   function drawFooter() {
-    const footerY = PAGE_H - MARGIN + 4;
+    const fy = PH - M + 4;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.setTextColor(...rgbArr(C.gray));
-    doc.text(
-      "TI TOTAL — Tecnologia da Informação para Concursos",
-      PAGE_W / 2,
-      footerY,
-      { align: "center" }
-    );
-    doc.text(String(pageNum), PAGE_W - MARGIN, footerY, { align: "right" });
+    doc.setTextColor(...C.gray);
+    doc.text("TI TOTAL — TI para Concursos", M, fy);
+    doc.text(String(pg), PW - M, fy, { align: "right" });
+    doc.setDrawColor(...C.rule);
+    doc.setLineWidth(0.3);
+    doc.line(M, PH - M, PW - M, PH - M);
   }
 
-  // ── Header (first page) ───────────────────────────────────────────────────
-
-  // "TI TOTAL" large bold blue
+  // ── First-page header ──
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.setTextColor(...rgbArr(C.heading1));
-  doc.text("TI TOTAL", MARGIN, currentY + ptToMm(22));
-  currentY += ptToMm(22) + 4;
+  doc.setFontSize(16);
+  doc.setTextColor(...C.h2bg);
+  doc.text("TI TOTAL", M, y + lh(16) * 0.8);
+  y += lh(16) + 2;
 
-  // Code | Discipline | TEORIA line
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(...rgbArr(C.gray));
-  const headerLine = `${lessonCode}  |  ${disciplineName}  |  `;
-  doc.text(headerLine, MARGIN, currentY + ptToMm(10));
-  const headerLineWidth = doc.getTextWidth(headerLine);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...rgbArr(C.heading2));
-  doc.text("TEORIA", MARGIN + headerLineWidth, currentY + ptToMm(10));
-  currentY += ptToMm(10) + 3;
+  doc.setFontSize(9);
+  doc.setTextColor(...C.gray);
+  doc.text(`${lessonCode}  ·  ${disciplineName}`, M, y + lh(9) * 0.8);
+  y += lh(9) + 1;
 
-  // Blue rule
-  doc.setDrawColor(...rgbArr(C.heading2));
-  doc.setLineWidth(0.5);
-  doc.line(MARGIN, currentY, PAGE_W - MARGIN, currentY);
-  currentY += 6;
+  doc.setDrawColor(...C.h2bg);
+  doc.setLineWidth(0.6);
+  doc.line(M, y, PW - M, y);
+  y += 5;
 
   drawFooter();
 
-  // ── Block renderers ───────────────────────────────────────────────────────
+  // ── Inline text renderer ──
+  function renderInline(text: string, fontSize: number, spaceAfter = GAP, indent = 0) {
+    const segs = parseInline(text);
+    const lineH = lh(fontSize);
+    // estimate height from plain text
+    const plain = text.replace(/\[\[(?:AZUL|VERMELHO):(.*?)\]\]|\*\*(.*?)\*\*/g, "$1$2");
+    const wrapped: string[] = doc.splitTextToSize(plain, CW - indent);
+    checkBreak(wrapped.length * lineH + spaceAfter);
 
-  function renderText(
-    text: string,
-    fontSize: number,
-    bold: boolean,
-    color: readonly number[],
-    spaceBefore = 0,
-    spaceAfter = PARA_GAP,
-    indent = 0,
-  ) {
-    doc.setFont("helvetica", bold ? "bold" : "normal");
-    doc.setFontSize(fontSize);
-    doc.setTextColor(...rgbArr(color));
-    const maxW = CONTENT_W - indent;
-    const lines: string[] = doc.splitTextToSize(text, maxW);
-    const lh = lineHeightMm(fontSize);
-    const totalH = lines.length * lh + spaceBefore + spaceAfter;
-    checkPageBreak(totalH);
-    currentY += spaceBefore;
-    for (const line of lines) {
-      doc.text(line, MARGIN + indent, currentY + lh * 0.8);
-      currentY += lh;
-    }
-    currentY += spaceAfter;
-  }
-
-  function renderInlineLine(
-    line: string,
-    fontSize: number,
-    spaceAfter = PARA_GAP,
-    indent = 0,
-  ) {
-    const segments = parseInlineSegments(line);
-    const lh = lineHeightMm(fontSize);
-    // Measure total and split if needed (simplified: render word-wrapped per segment)
-    // For simplicity, collect all text then render with color runs via manual X tracking
-    checkPageBreak(lh + spaceAfter);
-    let x = MARGIN + indent;
-    const y = currentY + lh * 0.8;
-    for (const seg of segments) {
+    let cx = M + indent;
+    for (const seg of segs) {
       if (!seg.text) continue;
       doc.setFont("helvetica", seg.bold ? "bold" : "normal");
       doc.setFontSize(fontSize);
-      doc.setTextColor(...rgbArr(seg.color));
-      // Check if this segment fits on the line, otherwise wrap
+      doc.setTextColor(...seg.color);
       const words = seg.text.split(/(\s+)/);
       for (const word of words) {
         const w = doc.getTextWidth(word);
-        if (x + w > PAGE_W - MARGIN && word.trim()) {
-          currentY += lh;
-          checkPageBreak(lh);
-          x = MARGIN + indent;
-        }
-        doc.text(word, x, currentY + lh * 0.8);
-        x += w;
+        if (cx + w > PW - M && word.trim()) { y += lineH; cx = M + indent; }
+        doc.text(word, cx, y + lineH * 0.8);
+        cx += w;
       }
     }
-    currentY += lh + spaceAfter;
+    y += lineH + spaceAfter;
   }
 
+  // ── Blue banner (H1/H2) ──
+  function renderBanner(text: string, bg: RGB, fontSize: number) {
+    const bh = ptMm(fontSize) * LH_MULT + 6;
+    checkBreak(bh + 6);
+    doc.setFillColor(...bg);
+    doc.rect(M, y, CW, bh, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(fontSize);
+    doc.setTextColor(255, 255, 255);
+    doc.text(text.toUpperCase(), M + 5, y + bh - 3);
+    y += bh + 6;
+  }
+
+  // ── Bullet ──
   function renderBullet(text: string) {
-    const bullet = "•  ";
-    const indent = 4;
-    const fontSize = BODY_FONT_SIZE;
-    const lh = lineHeightMm(fontSize);
-    const segments = parseInlineSegments(text);
-
-    // measure total wrapped height
-    const plainText = bullet + text.replace(/\[\[(?:AZUL|VERMELHO):(.*?)\]\]|\*\*(.*?)\*\*/g, "$1$2");
-    const lines: string[] = doc.splitTextToSize(plainText, CONTENT_W - indent);
-    const totalH = lines.length * lh + PARA_GAP;
-    checkPageBreak(totalH);
-
-    // render bullet character
+    const indent = 5;
+    const lineH = lh(BODY);
+    const plain = "• " + text.replace(/\[\[(?:AZUL|VERMELHO):(.*?)\]\]|\*\*(.*?)\*\*/g, "$1$2");
+    const wrapped: string[] = doc.splitTextToSize(plain, CW - indent);
+    checkBreak(wrapped.length * lineH + GAP);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(fontSize);
-    doc.setTextColor(...rgbArr(C.body));
-    doc.text("•", MARGIN + indent, currentY + lh * 0.8);
-
-    // render inline text after bullet
-    let x = MARGIN + indent + doc.getTextWidth("•  ");
-    const baseY = currentY;
-    let localY = 0;
-
-    for (const seg of segments) {
-      if (!seg.text) continue;
-      doc.setFont("helvetica", seg.bold ? "bold" : "normal");
-      doc.setFontSize(fontSize);
-      doc.setTextColor(...rgbArr(seg.color));
-      const words = seg.text.split(/(\s+)/);
-      for (const word of words) {
-        const w = doc.getTextWidth(word);
-        if (x + w > PAGE_W - MARGIN && word.trim()) {
-          localY += lh;
-          x = MARGIN + indent + doc.getTextWidth("   ");
-        }
-        doc.text(word, x, baseY + localY + lh * 0.8);
-        x += w;
-      }
-    }
-    currentY += Math.max(1, Math.ceil(localY / lh) + 1) * lh + PARA_GAP;
+    doc.setFontSize(BODY);
+    doc.setTextColor(...C.body);
+    doc.text("•", M + indent, y + lineH * 0.8);
+    renderInline(text, BODY, GAP, indent + 4);
   }
 
-  function renderBox(
-    label: string,
-    content: string,
-    bg: readonly number[],
-    borderColor: readonly number[],
-  ) {
-    const fontSize = BODY_FONT_SIZE;
-    const lh = lineHeightMm(fontSize);
-    const labelH = lineHeightMm(9) + 2;
-    const paddingV = 3;
-    const paddingH = 5;
-    const borderW = 3;
-    const innerW = CONTENT_W - borderW - paddingH * 2;
-
-    // Calculate content height
+  // ── Box ──
+  function renderBox(label: string, content: string, bg: RGB, brd: RGB) {
+    const bw = 3, pH = 3, pX = 5;
+    const lineH = lh(BODY);
+    const labelH = lh(9) + 2;
+    let h = pH * 2 + labelH;
     const lines = content.trim().split("\n").filter(l => l.trim());
-    let contentH = labelH;
     for (const line of lines) {
-      const isBullet = /^[-•*]\s/.test(line);
-      const text = (isBullet ? "•  " : "") + line.replace(/^[-•*]\s*/, "");
-      const plain = text.replace(/\[\[(?:AZUL|VERMELHO):(.*?)\]\]|\*\*(.*?)\*\*/g, "$1$2");
-      const wrapped: string[] = doc.splitTextToSize(plain, innerW - (isBullet ? 4 : 0));
-      contentH += wrapped.length * lh + PARA_GAP;
+      const plain = ((/^[-•*]\s/.test(line) ? "•  " : "") + line.replace(/^[-•*]\s*/, ""))
+        .replace(/\[\[(?:AZUL|VERMELHO):(.*?)\]\]|\*\*(.*?)\*\*/g, "$1$2");
+      const ws: string[] = doc.splitTextToSize(plain, CW - bw - pX * 2 - (/^[-•*]\s/.test(line) ? 4 : 0));
+      h += ws.length * lineH + GAP;
     }
-    const boxH = paddingV * 2 + contentH;
+    checkBreak(h + 4);
 
-    checkPageBreak(boxH + 4);
+    doc.setFillColor(...bg);
+    doc.rect(M + bw, y, CW - bw, h, "F");
+    doc.setFillColor(...brd);
+    doc.rect(M, y, bw, h, "F");
 
-    const boxX = MARGIN;
-    const boxY = currentY;
-
-    // Background
-    doc.setFillColor(...rgbArr(bg));
-    doc.rect(boxX + borderW, boxY, CONTENT_W - borderW, boxH, "F");
-
-    // Left border
-    doc.setFillColor(...rgbArr(borderColor));
-    doc.rect(boxX, boxY, borderW, boxH, "F");
-
-    // Label
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.setTextColor(...rgbArr(borderColor));
-    const labelY = boxY + paddingV + lineHeightMm(9) * 0.8;
-    doc.text(label, boxX + borderW + paddingH, labelY);
+    doc.setTextColor(...brd);
+    doc.text(label, M + bw + pX, y + pH + lh(9) * 0.8);
 
-    let innerY = boxY + paddingV + labelH;
-
-    // Content lines
+    let iy = y + pH + labelH;
     for (const line of lines) {
-      const trimmed = line.trimEnd();
-      if (!trimmed) continue;
-      const isBullet = /^[-•*]\s/.test(trimmed);
-      const lineText = trimmed.replace(/^[-•*]\s*/, "");
-      const bulletIndent = isBullet ? 4 : 0;
-      const segments = parseInlineSegments(lineText);
-
+      const t = line.trimEnd();
+      if (!t) continue;
+      const isBullet = /^[-•*]\s/.test(t);
+      const text = t.replace(/^[-•*]\s*/, "");
+      const indent = isBullet ? 4 : 0;
       if (isBullet) {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(fontSize);
-        doc.setTextColor(...rgbArr(C.body));
-        doc.text("•", boxX + borderW + paddingH + bulletIndent, innerY + lh * 0.8);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(BODY); doc.setTextColor(...C.body);
+        doc.text("•", M + bw + pX + indent, iy + lineH * 0.8);
       }
-
-      let x = boxX + borderW + paddingH + bulletIndent + (isBullet ? doc.getTextWidth("•  ") : 0);
-      const startX = x;
-      const maxLineX = boxX + CONTENT_W - paddingH;
-
-      for (const seg of segments) {
+      let cx = M + bw + pX + indent + (isBullet ? doc.getTextWidth("•  ") : 0);
+      const segs = parseInline(text);
+      for (const seg of segs) {
         if (!seg.text) continue;
         doc.setFont("helvetica", seg.bold ? "bold" : "normal");
-        doc.setFontSize(fontSize);
-        doc.setTextColor(...rgbArr(seg.color));
-        const words = seg.text.split(/(\s+)/);
-        for (const word of words) {
+        doc.setFontSize(BODY);
+        doc.setTextColor(...seg.color);
+        for (const word of seg.text.split(/(\s+)/)) {
           const w = doc.getTextWidth(word);
-          if (x + w > maxLineX && word.trim()) {
-            innerY += lh;
-            x = startX;
-          }
-          doc.text(word, x, innerY + lh * 0.8);
-          x += w;
+          if (cx + w > PW - M - pX && word.trim()) { iy += lineH; cx = M + bw + pX + indent + (isBullet ? doc.getTextWidth("•  ") : 0); }
+          doc.text(word, cx, iy + lineH * 0.8);
+          cx += w;
         }
       }
-      innerY += lh + PARA_GAP;
+      iy += lineH + GAP;
     }
-
-    currentY += boxH + 4;
+    y += h + 4;
   }
 
-  // ── Render all blocks ─────────────────────────────────────────────────────
+  // ── Markdown table ──
+  function renderMdTable(rows: string[][]) {
+    const cols = rows[0]?.length ?? 1;
+    const colW = CW / cols;
+    const lineH = lh(BODY);
+    const cellPad = 2;
 
+    let totalH = 0;
+    const rowHeights: number[] = rows.map((row, ri) => {
+      let maxLines = 1;
+      for (const cell of row) {
+        const plain = cell.replace(/\*\*/g, "");
+        const wrapped: string[] = doc.splitTextToSize(plain, colW - cellPad * 2);
+        maxLines = Math.max(maxLines, wrapped.length);
+      }
+      return maxLines * lineH + cellPad * 2;
+    });
+    totalH = rowHeights.reduce((a, b) => a + b, 0);
+
+    checkBreak(totalH + 4);
+
+    let ry = y;
+    for (let ri = 0; ri < rows.length; ri++) {
+      const rh = rowHeights[ri];
+      for (let ci = 0; ci < rows[ri].length; ci++) {
+        const cx = M + ci * colW;
+        const fill: RGB = ri === 0 ? C.h2bg : ri % 2 === 0 ? [240,244,250] : [255,255,255];
+        doc.setFillColor(...fill);
+        doc.rect(cx, ry, colW, rh, "F");
+        doc.setDrawColor(...C.rule);
+        doc.setLineWidth(0.2);
+        doc.rect(cx, ry, colW, rh, "S");
+
+        const cell = rows[ri][ci];
+        doc.setFont("helvetica", ri === 0 ? "bold" : "normal");
+        doc.setFontSize(BODY - 1);
+        doc.setTextColor(...(ri === 0 ? [255,255,255] as RGB : C.body));
+        const wrapped: string[] = doc.splitTextToSize(cell.replace(/\*\*/g, ""), colW - cellPad * 2);
+        for (let wi = 0; wi < wrapped.length; wi++) {
+          doc.text(wrapped[wi], cx + cellPad, ry + cellPad + (wi + 1) * lh(BODY - 1) * 0.9);
+        }
+      }
+      ry += rh;
+    }
+    y = ry + 4;
+  }
+
+  // ── Render ──
   for (const b of blocks) {
     switch (b.type) {
       case "h1":
-        renderText(b.text, 18, true, C.heading1, 6, 3);
+        y += 4;
+        renderBanner(b.text, C.h1bg, 16);
         break;
       case "h2":
-        renderText(b.text, 14, true, C.heading2, 4, 2);
+        y += 4;
+        renderBanner(b.text, C.h2bg, 13);
         break;
       case "h3":
-        renderText(b.text, 12, true, C.heading3, 3, 1.5);
+        checkBreak(lh(11) + 5);
+        y += 3;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...C.h3);
+        doc.text(b.text, M, y + lh(11) * 0.8);
+        y += lh(11) + 3;
         break;
       case "bullet":
         renderBullet(b.text);
         break;
       case "para":
-        if (b.text) renderInlineLine(b.text, BODY_FONT_SIZE);
+        if (b.text) renderInline(b.text, BODY);
         break;
-      case "essencial":
-        renderBox("★ ESSENCIAL DE PROVA", b.content, C.essencialBg, C.essencialBrd);
+      case "hr":
+        y += 2;
+        doc.setDrawColor(...C.rule);
+        doc.setLineWidth(0.3);
+        doc.line(M, y, PW - M, y);
+        y += 4;
         break;
-      case "atencao":
-        renderBox("⚠ ATENÇÃO", b.content, C.atencaoBg, C.atencaoBrd);
+      case "mdtable":
+        renderMdTable(b.rows);
         break;
-      case "bizu":
-        renderBox("👉 BIZU", b.content, C.bizuBg, C.bizuBrd);
-        break;
-      case "dica":
-        renderBox("💡 DICA", b.content, C.dicaBg, C.dicaBrd);
-        break;
-      case "exemplificando":
-        renderBox("EXEMPLIFICANDO", b.content, C.exemploBg, C.exemploBrd);
-        break;
-      case "esclarecendo":
-        renderBox("ESCLARECENDO", b.content, C.esclareceBg, C.esclareceBrd);
-        break;
-      case "questao":
-        renderBox("📝 QUESTÃO DE PROVA", b.content, C.questaoBg, C.questaoBrd);
-        break;
+      case "essencial":   renderBox("★ ESSENCIAL DE PROVA",    b.content, C.essencialBg, C.essencialBrd); break;
+      case "atencao":     renderBox("⚠ ATENÇÃO",               b.content, C.atencaoBg,   C.atencaoBrd);   break;
+      case "bizu":        renderBox("👉 BIZU",                  b.content, C.bizuBg,      C.bizuBrd);      break;
+      case "dica":        renderBox("💡 DICA",                  b.content, C.dicaBg,      C.dicaBrd);      break;
+      case "exemplificando": renderBox("📌 EXEMPLIFICANDO",    b.content, C.exemploBg,   C.exemploBrd);   break;
+      case "esclarecendo":   renderBox("🔎 ESCLARECENDO",      b.content, C.esclareceBg, C.esclareceBrd); break;
+      case "questao":     renderBox("📝 QUESTÃO DE PROVA",     b.content, C.questaoBg,   C.questaoBrd);   break;
+      case "esquema":     renderBox("📊 ESQUEMA",              b.content, C.esquemaBg,   C.esquemaBrd);   break;
     }
   }
 
-  const arrayBuffer: ArrayBuffer = doc.output("arraybuffer");
-  return Buffer.from(arrayBuffer);
+  return Buffer.from(doc.output("arraybuffer") as ArrayBuffer);
 }
 
-// ─── Route ───────────────────────────────────────────────────────────────────
+// ─── Route ────────────────────────────────────────────────────────────────────
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ stepId: string }> }
@@ -457,11 +371,8 @@ export async function GET(
       },
     });
 
-    if (!step) {
-      return NextResponse.json({ error: "Etapa não encontrada" }, { status: 404 });
-    }
+    if (!step) return NextResponse.json({ error: "Etapa não encontrada" }, { status: 404 });
 
-    // For PADRONIZACAO_EDITORIAL, ALWAYS use PRODUCAO_TEORIA output
     let outputText = "";
     if (step.stepKey === "PADRONIZACAO_EDITORIAL") {
       const teoriaStep = await prisma.workflowStep.findFirst({
@@ -473,23 +384,21 @@ export async function GET(
       outputText = step.stepRuns[0]?.outputText ?? "";
     }
 
-    if (!outputText) {
-      return NextResponse.json({ error: "Nenhum conteúdo para exportar" }, { status: 404 });
-    }
+    if (!outputText) return NextResponse.json({ error: "Nenhum conteúdo para exportar" }, { status: 404 });
 
     const lesson = step.lesson;
-    const lessonCode = lesson?.code ?? "teoria";
-    const disciplineName = lesson?.discipline?.name ?? "";
+    const buffer = buildPdf(
+      parseBlocks(outputText),
+      lesson?.code ?? "",
+      lesson?.title ?? "",
+      lesson?.discipline?.name ?? "",
+    );
+    const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
 
-    const blocks = parseBlocks(outputText);
-    const buffer = buildPdf(blocks, lessonCode, disciplineName);
-    const filename = `${lessonCode}-teoria.pdf`;
-    const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
-
-    return new Response(arrayBuffer, {
+    return new Response(ab, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `attachment; filename="${lesson?.code ?? "teoria"}-teoria.pdf"`,
         "Content-Length": buffer.byteLength.toString(),
       },
     });
