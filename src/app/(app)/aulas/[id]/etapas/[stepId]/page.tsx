@@ -575,7 +575,10 @@ export default function StepExecutionPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="rounded-lg bg-white border border-gray-200 p-5 max-h-[500px] overflow-y-auto">
-                    <TITotalRenderer text={output} />
+                    {isGenerating
+                      ? <pre className="whitespace-pre-wrap text-xs text-gray-700 font-sans leading-relaxed">{output}</pre>
+                      : <TITotalRenderer text={output} />
+                    }
                   </div>
                 </CardContent>
               </Card>
