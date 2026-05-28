@@ -3,12 +3,12 @@ import { prisma } from "@/lib/prisma";
 
 export const maxDuration = 60;
 
-async function* streamAnthropic(prompt: string, systemPrompt: string, config: any) {
+async function* streamAnthropic(prompt: string, systemPrompt: string, config: any, maxTokens: number) {
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
   const client = new Anthropic({ apiKey: config.apiKey || process.env.ANTHROPIC_API_KEY });
   const stream = client.messages.stream({
     model: config.model || "claude-sonnet-4-6",
-    max_tokens: config.maxTokens || 6000,
+    max_tokens: maxTokens,
     system: systemPrompt,
     messages: [{ role: "user", content: prompt }],
     temperature: config.temperature || 0.3,
@@ -20,14 +20,14 @@ async function* streamAnthropic(prompt: string, systemPrompt: string, config: an
   }
 }
 
-async function* streamOpenAI(prompt: string, systemPrompt: string, config: any) {
+async function* streamOpenAI(prompt: string, systemPrompt: string, config: any, maxTokens: number) {
   const { OpenAI } = await import("openai");
   const client = new OpenAI({ apiKey: config.apiKey || process.env.OPENAI_API_KEY });
   const stream = await client.chat.completions.create({
     model: config.model || "gpt-4o",
     messages: [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }],
     temperature: config.temperature || 0.3,
-    max_tokens: config.maxTokens || 6000,
+    max_tokens: maxTokens,
     stream: true,
   });
   for await (const chunk of stream) {
@@ -38,7 +38,7 @@ async function* streamOpenAI(prompt: string, systemPrompt: string, config: any) 
 
 export async function POST(req: NextRequest) {
   try {
-    const { stepId, lessonId, topicIndex, topicTitle, totalTopics, isFirst, isLast } = await req.json();
+    const { stepId, lessonId, topicIndex, topicTitle, totalTopics, isFirst, isClosing } = await req.json();
 
     const [lesson, aiConfig] = await Promise.all([
       prisma.lesson.findUnique({
@@ -54,48 +54,42 @@ export async function POST(req: NextRequest) {
 
     if (!lesson) return new Response("Aula não encontrada", { status: 404 });
 
-    const config = aiConfig ?? { provider: "openai", model: "gpt-4o", temperature: 0.3, maxTokens: 6000 };
+    const config = aiConfig ?? { provider: "openai", model: "gpt-4o", temperature: 0.3 };
     const allTopics = lesson.topics.map((t: any) => t.title);
     const sectionNum = topicIndex + 1;
 
-    let sectionPrompt = `AULA: ${lesson.code} — ${lesson.title}
+    const baseContext = `AULA: ${lesson.code} — ${lesson.title}
 DISCIPLINA: ${lesson.discipline?.name || "—"}
 BANCAS: ${(lesson as any).priorityBoards?.join(", ") || "—"}
 PERFIL: ${(lesson as any).studentProfile || "—"}
 TODOS OS TÓPICOS DA AULA: ${allTopics.join(" | ")}
 
 ${(lesson.memory as any)?.centralConcepts?.length > 0 ? `CONCEITOS CENTRAIS: ${JSON.stringify((lesson.memory as any).centralConcepts)}` : ""}
-${(lesson.memory as any)?.tricks?.length > 0 ? `PEGADINHAS: ${JSON.stringify((lesson.memory as any).tricks)}` : ""}
+${(lesson.memory as any)?.tricks?.length > 0 ? `PEGADINHAS: ${JSON.stringify((lesson.memory as any).tricks)}` : ""}`;
 
-TAREFA: Gere APENAS o conteúdo da seção ${sectionNum} desta aula.`;
+    let sectionPrompt: string;
+    let maxTokens: number;
 
-    if (isFirst && isLast) {
-      // Only one topic — generate the complete document
-      sectionPrompt += `
+    if (isClosing) {
+      // Separate call just for the closing sections — keeps last topic call short
+      maxTokens = 2000;
+      sectionPrompt = `${baseContext}
 
-Gere o documento completo:
-# ${lesson.title}
-
-${allTopics.map((t: string) => `- ${t}`).join("\n")}
-
----
-
-## ${sectionNum}. ${topicTitle}
-
-[conteúdo completo da seção seguindo o padrão TI TOTAL]
-
----
+TAREFA: Gere as três seções de encerramento desta aula, sintetizando TODOS os ${totalTopics} tópicos.
 
 ## ESSENCIAL DE PROVA — REVISÃO FINAL
-[síntese dos pontos mais cobrados em provas de toda a aula]
+[síntese dos pontos mais cobrados em provas de toda a aula — inclua os ${totalTopics} tópicos]
 
 ## GLOSSÁRIO DE TERMOS
 [termos principais com definições resumidas, um por linha]
 
 ## REFERÊNCIAS
-[fontes bibliográficas]`;
+[fontes bibliográficas relevantes]`;
     } else if (isFirst) {
-      sectionPrompt += `
+      maxTokens = 3500;
+      sectionPrompt = `${baseContext}
+
+TAREFA: Gere APENAS o conteúdo da seção ${sectionNum} desta aula.
 
 Comece o documento com:
 # ${lesson.title}
@@ -109,26 +103,11 @@ ${allTopics.map((t: string) => `- ${t}`).join("\n")}
 [conteúdo completo da seção seguindo o padrão TI TOTAL]
 
 Termine sua resposta IMEDIATAMENTE após o conteúdo desta seção. NÃO gere seções seguintes.`;
-    } else if (isLast) {
-      sectionPrompt += `
-
-Gere:
-## ${sectionNum}. ${topicTitle}
-
-[conteúdo completo da seção]
-
----
-
-## ESSENCIAL DE PROVA — REVISÃO FINAL
-[síntese dos pontos mais cobrados em provas de toda a aula]
-
-## GLOSSÁRIO DE TERMOS
-[termos principais com definições resumidas, um por linha]
-
-## REFERÊNCIAS
-[fontes bibliográficas]`;
     } else {
-      sectionPrompt += `
+      maxTokens = 3500;
+      sectionPrompt = `${baseContext}
+
+TAREFA: Gere APENAS o conteúdo da seção ${sectionNum} desta aula.
 
 Gere apenas:
 ## ${sectionNum}. ${topicTitle}
@@ -146,8 +125,8 @@ Termine sua resposta IMEDIATAMENTE após o conteúdo desta seção. NÃO gere se
         try {
           const generator =
             config.provider === "anthropic"
-              ? streamAnthropic(sectionPrompt, systemPrompt, config)
-              : streamOpenAI(sectionPrompt, systemPrompt, config);
+              ? streamAnthropic(sectionPrompt, systemPrompt, config, maxTokens)
+              : streamOpenAI(sectionPrompt, systemPrompt, config, maxTokens);
 
           for await (const chunk of generator) {
             controller.enqueue(encoder.encode(chunk));

@@ -127,7 +127,7 @@ export default function StepExecutionPage() {
     topicTitle: string,
     totalTopics: number,
     isFirst: boolean,
-    isLast: boolean,
+    isClosing: boolean,
     onChunk: (chunk: string) => void
   ): Promise<boolean> => {
     const res = await fetch("/api/ai/generate-section", {
@@ -140,7 +140,7 @@ export default function StepExecutionPage() {
         topicTitle,
         totalTopics,
         isFirst,
-        isLast,
+        isClosing,
       }),
     });
 
@@ -171,31 +171,43 @@ export default function StepExecutionPage() {
     // Use section-by-section generation for PRODUCAO_TEORIA
     if (step?.stepKey === "PRODUCAO_TEORIA" && lesson?.topics?.length > 0) {
       const topics = [...lesson.topics].sort((a: any, b: any) => a.order - b.order);
+      // +1 for the closing section (Revisão Final, Glossário, Referências)
+      const totalSteps = topics.length + 1;
       let accumulated = "";
-
       let success = true;
-      for (let i = 0; i < topics.length; i++) {
-        const topic = topics[i];
-        const isFirst = i === 0;
-        const isLast = i === topics.length - 1;
-        setSectionProgress({ current: i + 1, total: topics.length, name: topic.title });
 
-        const ok = await streamSection(
-          i, topic.title, topics.length, isFirst, isLast,
-          (chunk) => {
-            accumulated += chunk;
-            setOutput(prev => accumulated);
-          }
-        );
+      try {
+        // Generate each topic as its own section
+        for (let i = 0; i < topics.length; i++) {
+          const topic = topics[i];
+          setSectionProgress({ current: i + 1, total: totalSteps, name: topic.title });
 
-        if (!ok) { success = false; break; }
-        if (!isLast) accumulated += "\n\n---\n\n";
+          const ok = await streamSection(
+            i, topic.title, topics.length, i === 0, false,
+            (chunk) => { accumulated += chunk; setOutput(accumulated); }
+          );
+
+          if (!ok) { success = false; break; }
+          accumulated += "\n\n---\n\n";
+        }
+
+        // Closing section: Revisão Final + Glossário + Referências
+        if (success) {
+          setSectionProgress({ current: totalSteps, total: totalSteps, name: "Revisão Final" });
+          const closingOk = await streamSection(
+            -1, "", topics.length, false, true,
+            (chunk) => { accumulated += chunk; setOutput(accumulated); }
+          );
+          if (!closingOk) success = false;
+        }
+      } catch (err) {
+        console.error("Section generation error:", err);
+        success = false;
       }
 
       setSectionProgress(null);
 
       if (accumulated.length > 100) {
-        // Save to DB
         const saveRes = await fetch("/api/ai/save-generation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
