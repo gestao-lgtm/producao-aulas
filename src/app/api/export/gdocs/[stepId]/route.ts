@@ -51,7 +51,10 @@ const C = {
   exemploBrd:  { red: 0.118, green: 0.518, blue: 0.286 },
   esclareceBrd:{ red: 0.490, green: 0.235, blue: 0.596 },
   questaoBrd:  { red: 0.237, green: 0.337, blue: 0.451 },
-  tocLine:     { red: 0.878, green: 0.906, blue: 0.957 },
+  tocLine:        { red: 0.878, green: 0.906, blue: 0.957 },
+  pegadinhaLightBg: { red: 1.000, green: 0.945, blue: 0.945 },
+  fluxoBg:         { red: 0.071, green: 0.102, blue: 0.161 },
+  orientacoesBg:   { red: 0.945, green: 0.953, blue: 0.973 },
 };
 type Color = { red: number; green: number; blue: number };
 
@@ -83,13 +86,14 @@ type Block =
   | { type: "para"; text: string }
   | { type: "hr" }
   | { type: "mdtable"; rows: string[][] }
-  | { type: "essencial"|"atencao"|"bizu"|"dica"|"exemplificando"|"esclarecendo"|"questao"|"esquema"; content: string };
+  | { type: "essencial"|"atencao"|"bizu"|"dica"|"exemplificando"|"esclarecendo"|"questao"|"esquema"|"fluxo"|"pegadinha"|"orientacoes"; content: string };
 
-const TAG_RE = /\[(ESSENCIAL_DE_PROVA|ATENCAO|BIZU|DICA|EXEMPLIFICANDO|ESCLARECENDO|QUESTAO|ESQUEMA)\]([\s\S]*?)\[\/\1\]/gi;
+const TAG_RE = /\[(ESSENCIAL_DE_PROVA|ATENCAO|BIZU|DICA|EXEMPLIFICANDO|ESCLARECENDO|QUESTAO|ESQUEMA|FLUXO|PEGADINHA|ORIENTACOES_DA_AULA)\]([\s\S]*?)\[\/\1\]/gi;
 const TAG_MAP: Record<string, Block["type"]> = {
   ESSENCIAL_DE_PROVA: "essencial", ATENCAO: "atencao", BIZU: "bizu",
   DICA: "dica", EXEMPLIFICANDO: "exemplificando", ESCLARECENDO: "esclarecendo",
   QUESTAO: "questao", ESQUEMA: "esquema",
+  FLUXO: "fluxo", PEGADINHA: "pegadinha", ORIENTACOES_DA_AULA: "orientacoes",
 };
 
 function parseBlocks(text: string): Block[] {
@@ -473,6 +477,81 @@ class DocBuilder {
     }, "spaceBelow,shading");
   }
 
+  // Renders a visual process flow: A → B → C → D
+  addFlow(content: string) {
+    const raw = content.trim().replace(/\n/g, " → ");
+    // Split on → or | separators
+    const parts = raw.split(/\s*[→|]\s*/).map(p => p.trim()).filter(Boolean);
+    if (!parts.length) return;
+
+    const start = this.index;
+    const text = parts.join("  →  ") + "\n";
+    this.insertText(text);
+    const end = this.index;
+    this.stylePara(start, end, {
+      alignment: "CENTER",
+      spaceAbove: { magnitude: 10, unit: "PT" },
+      spaceBelow: { magnitude: 10, unit: "PT" },
+      shading: { backgroundColor: { color: { rgbColor: C.fluxoBg } } },
+    }, "alignment,spaceAbove,spaceBelow,shading");
+    this.styleText(start, end - 1, {
+      bold: true, fontSize: { magnitude: 12, unit: "PT" },
+      foregroundColor: { color: { rgbColor: C.white } },
+      weightedFontFamily: { fontFamily: "Montserrat" },
+    }, "bold,fontSize,foregroundColor,weightedFontFamily");
+  }
+
+  // Renders the ORIENTAÇÕES DA AULA block (professor's intro note to student)
+  addOrientacoes(content: string) {
+    const lines = content.trim().split("\n").filter(l => l.trim());
+
+    const labelStart = this.index;
+    this.insertText("ORIENTAÇÕES DA AULA\n");
+    const labelEnd = this.index;
+    this.stylePara(labelStart, labelEnd, {
+      spaceAbove: { magnitude: 10, unit: "PT" },
+      spaceBelow: { magnitude: 0, unit: "PT" },
+      indentStart: { magnitude: 10, unit: "PT" },
+      shading: { backgroundColor: { color: { rgbColor: C.h2bg } } },
+    }, "spaceAbove,spaceBelow,indentStart,shading");
+    this.styleText(labelStart, labelEnd - 1, {
+      bold: true, fontSize: { magnitude: 9, unit: "PT" },
+      foregroundColor: { color: { rgbColor: C.white } },
+      weightedFontFamily: { fontFamily: "Montserrat" },
+    }, "bold,fontSize,foregroundColor,weightedFontFamily");
+
+    for (const line of lines) {
+      const isBullet = /^[-•]\s/.test(line);
+      const lineText = isBullet ? line.replace(/^[-•]\s+/, "") : line;
+      const segs = parseInline(lineText);
+      const lStart = this.index;
+      this.insertText((isBullet ? "• " : "") + segs.map(s => s.text).join("") + "\n");
+      const lEnd = this.index;
+      this.stylePara(lStart, lEnd, {
+        spaceBelow: { magnitude: 4, unit: "PT" },
+        indentStart: { magnitude: isBullet ? 22 : 12, unit: "PT" },
+        shading: { backgroundColor: { color: { rgbColor: C.orientacoesBg } } },
+      }, "spaceBelow,indentStart,shading");
+      let pos = lStart + (isBullet ? 2 : 0);
+      for (const seg of segs) {
+        if (!seg.text) continue;
+        this.styleText(pos, pos + seg.text.length, {
+          bold: seg.bold, italic: seg.italic,
+          foregroundColor: { color: { rgbColor: seg.color } },
+          fontSize: { magnitude: 11, unit: "PT" },
+          weightedFontFamily: { fontFamily: "Arial" },
+        }, "bold,italic,foregroundColor,fontSize,weightedFontFamily");
+        pos += seg.text.length;
+      }
+    }
+    const sp = this.index;
+    this.insertText("\n");
+    this.stylePara(sp, this.index, {
+      spaceBelow: { magnitude: 8, unit: "PT" },
+      shading: { backgroundColor: { color: { rgbColor: C.orientacoesBg } } },
+    }, "spaceBelow,shading");
+  }
+
   addCover(imageUrl?: string) {
     if (imageUrl) {
       // Cover image — fills full content area (A4 minus 70.9pt margins = 453×700pt)
@@ -792,6 +871,9 @@ function renderBlocks(builder: DocBuilder, blocks: Block[], firstBlock = false) 
       case "exemplificando": builder.addBox("EXEMPLIFICANDO",         b.content, C.exemploBg,   C.exemploBrd,   pbk); break;
       case "esclarecendo":   builder.addBox("ESCLARECENDO",           b.content, C.esclareceBg, C.esclareceBrd, pbk); break;
       case "questao":        builder.addQuestionBox(b.content, pbk); break;
+      case "fluxo":          builder.addFlow(b.content); break;
+      case "pegadinha":      builder.addBox("🚨 PEGADINHA DE PROVA", b.content, C.pegadinhaLightBg, C.vermelho, pbk); break;
+      case "orientacoes":    builder.addOrientacoes(b.content); break;
       case "esquema":
         builder.addTable(
           b.content.includes("|")
