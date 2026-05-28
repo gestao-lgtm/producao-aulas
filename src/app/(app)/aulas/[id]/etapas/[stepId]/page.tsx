@@ -324,21 +324,36 @@ export default function StepExecutionPage() {
                 <div className="text-center">
                   <p className="text-sm font-semibold text-gray-800">Padronização Editorial</p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Gera o documento Word formatado no padrão TI TOTAL a partir da teoria aprovada.
+                    Gera o documento formatado no padrão TI TOTAL a partir da teoria aprovada.
                   </p>
                 </div>
-                <Button
-                  className="gap-2"
-                  onClick={() => {
-                    const a = document.createElement("a");
-                    a.href = `/api/export/pdf/${params.stepId}`;
-                    a.download = `${lesson.code}-teoria.pdf`;
-                    a.click();
-                  }}
-                >
-                  <FileDown className="h-4 w-4" />
-                  Baixar PDF — Padrão TI TOTAL
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    className="gap-2"
+                    onClick={() => {
+                      const a = document.createElement("a");
+                      a.href = `/api/export/docx/${params.stepId}`;
+                      a.download = `${lesson.code}-teoria.docx`;
+                      a.click();
+                    }}
+                  >
+                    <FileDown className="h-4 w-4" />
+                    Baixar DOCX
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => {
+                      const a = document.createElement("a");
+                      a.href = `/api/export/pdf/${params.stepId}`;
+                      a.download = `${lesson.code}-teoria.pdf`;
+                      a.click();
+                    }}
+                  >
+                    <FileDown className="h-4 w-4" />
+                    Baixar PDF
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -432,8 +447,21 @@ export default function StepExecutionPage() {
                       </Button>
                     )}
                     {step.stepKey === "PADRONIZACAO_EDITORIAL" && (
+                      <>
                       <Button
                         size="sm" className="gap-1.5 h-7 text-xs bg-blue-700 hover:bg-blue-800 text-white"
+                        onClick={() => {
+                          const a = document.createElement("a");
+                          a.href = `/api/export/docx/${params.stepId}`;
+                          a.download = `${lesson.code}-teoria.docx`;
+                          a.click();
+                        }}
+                      >
+                        <FileDown className="h-3 w-3" />
+                        Baixar DOCX
+                      </Button>
+                      <Button
+                        size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
                         onClick={() => {
                           const a = document.createElement("a");
                           a.href = `/api/export/pdf/${params.stepId}`;
@@ -444,6 +472,7 @@ export default function StepExecutionPage() {
                         <FileDown className="h-3 w-3" />
                         Baixar PDF
                       </Button>
+                      </>
                     )}
                   </div>
                 </CardHeader>
