@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // ─── Streaming helpers ───────────────────────────────────────────────────────
 
@@ -94,9 +94,15 @@ export async function POST(req: NextRequest) {
       orderBy: { version: "desc" },
     });
 
-    const aiConfig = (await prisma.aIConfig.findFirst({
+    const aiConfigRaw = (await prisma.aIConfig.findFirst({
       where: { isDefault: true, active: true },
     })) ?? { provider: "openai", model: "gpt-4o", temperature: 0.3, maxTokens: 8000 };
+
+    // Theory generation needs more tokens than the DB default; other steps keep their limit
+    const maxTokens = step.stepKey === "PRODUCAO_TEORIA"
+      ? Math.max((aiConfigRaw as any).maxTokens || 0, 16000)
+      : (aiConfigRaw as any).maxTokens || 8000;
+    const aiConfig = { ...aiConfigRaw, maxTokens };
 
     const contextPrompt = buildContextPrompt(lesson, step, promptTemplate?.prompt);
     const systemPrompt = promptTemplate?.prompt || getDefaultSystemPrompt(step.stepKey);

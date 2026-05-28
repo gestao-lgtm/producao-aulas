@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 async function* streamAnthropic(prompt: string, systemPrompt: string, config: any, maxTokens: number) {
   const Anthropic = (await import("@anthropic-ai/sdk")).default;

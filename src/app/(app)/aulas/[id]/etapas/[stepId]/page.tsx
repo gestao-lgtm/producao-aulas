@@ -66,7 +66,6 @@ export default function StepExecutionPage() {
   const [feedback, setFeedback] = useState({ whatIsWrong: "", whatToChange: "", examples: "" });
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [aiConfig, setAiConfig] = useState<{ provider: string; model: string; temperature: number } | null>(null);
-  const [sectionProgress, setSectionProgress] = useState<{ current: number; total: number; name: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/ai-config")
@@ -122,114 +121,10 @@ export default function StepExecutionPage() {
     }
   };
 
-  const streamSection = async (
-    topicIndex: number,
-    topicTitle: string,
-    totalTopics: number,
-    isFirst: boolean,
-    isClosing: boolean,
-    onChunk: (chunk: string) => void
-  ): Promise<boolean> => {
-    const res = await fetch("/api/ai/generate-section", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        stepId: params.stepId,
-        lessonId: params.id,
-        topicIndex,
-        topicTitle,
-        totalTopics,
-        isFirst,
-        isClosing,
-      }),
-    });
-
-    if (!res.ok || !res.body) return false;
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      if (chunk.includes("__SECTION_ERROR__")) return false;
-      if (chunk.includes("__SECTION_DONE__")) {
-        onChunk(chunk.replace("__SECTION_DONE__", "").replace(/\n\n$/, ""));
-        return true;
-      }
-      onChunk(chunk);
-    }
-    return true;
-  };
-
   const handleGenerate = async () => {
     setIsGenerating(true);
     setOutput("");
-    setSectionProgress(null);
 
-    // Use section-by-section generation for PRODUCAO_TEORIA
-    if (step?.stepKey === "PRODUCAO_TEORIA" && lesson?.topics?.length > 0) {
-      const topics = [...lesson.topics].sort((a: any, b: any) => a.order - b.order);
-      // +1 for the closing section (Revisão Final, Glossário, Referências)
-      const totalSteps = topics.length + 1;
-      let accumulated = "";
-      let success = true;
-
-      try {
-        // Generate each topic as its own section
-        for (let i = 0; i < topics.length; i++) {
-          const topic = topics[i];
-          setSectionProgress({ current: i + 1, total: totalSteps, name: topic.title });
-
-          const ok = await streamSection(
-            i, topic.title, topics.length, i === 0, false,
-            (chunk) => { accumulated += chunk; setOutput(accumulated); }
-          );
-
-          if (!ok) { success = false; break; }
-          accumulated += "\n\n---\n\n";
-        }
-
-        // Closing section: Revisão Final + Glossário + Referências
-        if (success) {
-          setSectionProgress({ current: totalSteps, total: totalSteps, name: "Revisão Final" });
-          const closingOk = await streamSection(
-            -1, "", topics.length, false, true,
-            (chunk) => { accumulated += chunk; setOutput(accumulated); }
-          );
-          if (!closingOk) success = false;
-        }
-      } catch (err) {
-        console.error("Section generation error:", err);
-        success = false;
-      }
-
-      setSectionProgress(null);
-
-      if (accumulated.length > 100) {
-        const saveRes = await fetch("/api/ai/save-generation", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stepId: params.stepId, lessonId: params.id, outputText: accumulated }),
-        });
-        const saveJson = await saveRes.json();
-        if (saveJson.version) setRunVersion(saveJson.version);
-        await reloadStep();
-        if (success) {
-          toast.success("Teoria gerada com sucesso!");
-        } else {
-          toast.warning("Geração interrompida — conteúdo parcial salvo. Você pode aprovar ou regenerar.");
-        }
-      } else {
-        toast.error("Erro na geração. Tente novamente.");
-      }
-
-      setIsGenerating(false);
-      return;
-    }
-
-    // Fallback: single-shot generation for other step types
     try {
       const res = await fetch("/api/ai/generate", {
         method: "POST",
@@ -490,25 +385,8 @@ export default function StepExecutionPage() {
               <Card>
                 <CardContent className="py-12 flex flex-col items-center gap-3">
                   <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
-                  {sectionProgress ? (
-                    <>
-                      <p className="text-sm font-medium text-gray-700">
-                        Gerando seção {sectionProgress.current} de {sectionProgress.total}
-                      </p>
-                      <p className="text-xs text-gray-500 max-w-xs text-center">{sectionProgress.name}</p>
-                      <div className="w-48 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                          style={{ width: `${(sectionProgress.current / sectionProgress.total) * 100}%` }}
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm font-medium text-gray-700">Gerando conteúdo com IA...</p>
-                      <p className="text-xs text-gray-400">O texto vai aparecer aqui enquanto a IA escreve</p>
-                    </>
-                  )}
+                  <p className="text-sm font-medium text-gray-700">Gerando conteúdo com IA...</p>
+                  <p className="text-xs text-gray-400">O texto vai aparecer aqui enquanto a IA escreve</p>
                 </CardContent>
               </Card>
             )}
@@ -526,9 +404,7 @@ export default function StepExecutionPage() {
                       {isGenerating && (
                         <span className="flex items-center gap-1 text-xs font-normal text-blue-500">
                           <Loader2 className="h-3 w-3 animate-spin" />
-                          {sectionProgress
-                            ? `seção ${sectionProgress.current}/${sectionProgress.total}: ${sectionProgress.name.slice(0, 30)}...`
-                            : "escrevendo..."}
+                          escrevendo...
                         </span>
                       )}
                     </CardTitle>
