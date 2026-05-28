@@ -559,6 +559,50 @@ function renderBlocks(builder: DocBuilder, blocks: Block[], firstBlock = false) 
   }
 }
 
+// ─── Upload cover image to Google Drive (cached by filename) ─────────────────
+async function getOrUploadCoverImage(driveClient: any): Promise<string | undefined> {
+  try {
+    const fs = (await import("fs")).default;
+    const path = (await import("path")).default;
+    const imagePath = path.join(process.cwd(), "public", "capa-ti-total.png");
+    if (!fs.existsSync(imagePath)) return undefined;
+
+    const DRIVE_FILE_NAME = "capa-ti-total-producao-aulas.png";
+
+    // Check if already uploaded
+    const search = await driveClient.files.list({
+      q: `name='${DRIVE_FILE_NAME}' and trashed=false`,
+      fields: "files(id)",
+      spaces: "drive",
+    });
+    if (search.data.files?.length > 0) {
+      const id = search.data.files[0].id;
+      return `https://drive.google.com/uc?export=view&id=${id}`;
+    }
+
+    // Upload
+    const { Readable } = await import("stream");
+    const buffer = fs.readFileSync(imagePath);
+    const uploaded = await driveClient.files.create({
+      requestBody: { name: DRIVE_FILE_NAME, mimeType: "image/png" },
+      media: { mimeType: "image/png", body: Readable.from(buffer) },
+      fields: "id",
+    });
+    const fileId = uploaded.data.id!;
+
+    // Make public
+    await driveClient.permissions.create({
+      fileId,
+      requestBody: { role: "reader", type: "anyone" },
+    });
+
+    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  } catch (e) {
+    console.error("Cover image upload failed:", e);
+    return undefined;
+  }
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ stepId: string }> }
@@ -605,10 +649,8 @@ export async function GET(
     // 3. Build document
     const builder = new DocBuilder();
 
-    // Cover page — use public image if available
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL
-      ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
-    const coverImageUrl = appUrl ? `${appUrl}/capa-ti-total.png` : undefined;
+    // Cover page — upload image to Google Drive for a guaranteed public URL
+    const coverImageUrl = await getOrUploadCoverImage(driveClient);
     builder.addCover(lesson?.code ?? "", lesson?.title ?? "", coverImageUrl);
 
     // TOC (with page break before)
