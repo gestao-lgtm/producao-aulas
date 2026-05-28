@@ -157,7 +157,12 @@ export default function NovaAulaPage() {
         return;
       }
       toast.success("Aula criada com sucesso!");
-      router.push(`/aulas/${json.id}`);
+      const teoriaStep = (json.workflowSteps ?? []).find((s: any) => s.stepKey === "PRODUCAO_TEORIA");
+      if (teoriaStep) {
+        router.push(`/aulas/${json.id}/etapas/${teoriaStep.id}`);
+      } else {
+        router.push(`/aulas/${json.id}`);
+      }
     } catch {
       toast.error("Erro de conexão. Tente novamente.");
     } finally {
