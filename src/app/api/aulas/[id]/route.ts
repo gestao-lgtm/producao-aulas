@@ -112,3 +112,18 @@ export async function PATCH(
     return NextResponse.json({ error: "Erro ao salvar: " + (error.message ?? "") }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    await prisma.lesson.delete({ where: { id } });
+    revalidatePath("/aulas");
+    return NextResponse.json({ ok: true });
+  } catch (error: any) {
+    console.error("DELETE /api/aulas/[id]:", error);
+    return NextResponse.json({ error: error.message ?? "Erro ao excluir aula" }, { status: 500 });
+  }
+}
