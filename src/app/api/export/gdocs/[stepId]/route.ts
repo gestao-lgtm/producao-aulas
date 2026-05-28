@@ -179,11 +179,12 @@ class DocBuilder {
     }
   }
 
-  addBanner(text: string, bg: Color, fontSize: number, spaceAbove = 12, pageBreakBefore = false) {
+  addBanner(text: string, bg: Color, fontSize: number, spaceAbove = 12, pageBreakBefore = false, headingLevel: 1|2|3|null = null) {
     const start = this.index;
-    this.insertText(text.toUpperCase() + "\n");
+    this.insertText(text + "\n");
     const end = this.index;
     const paraStyle: any = {
+      namedStyleType: headingLevel ? `HEADING_${headingLevel}` : "NORMAL_TEXT",
       spaceAbove: { magnitude: spaceAbove, unit: "PT" },
       spaceBelow: { magnitude: 8, unit: "PT" },
       indentStart: { magnitude: 8, unit: "PT" },
@@ -191,7 +192,7 @@ class DocBuilder {
       shading: { backgroundColor: { color: { rgbColor: bg } } },
     };
     if (pageBreakBefore) paraStyle.pageBreakBefore = true;
-    this.stylePara(start, end, paraStyle, `spaceAbove,spaceBelow,indentStart,indentEnd,shading${pageBreakBefore ? ",pageBreakBefore" : ""}`);
+    this.stylePara(start, end, paraStyle, `namedStyleType,spaceAbove,spaceBelow,indentStart,indentEnd,shading${pageBreakBefore ? ",pageBreakBefore" : ""}`);
     this.styleText(start, end - 1, {
       bold: true,
       fontSize: { magnitude: fontSize, unit: "PT" },
@@ -206,9 +207,10 @@ class DocBuilder {
     this.insertText(segs.map(s => s.text).join("") + "\n");
     const end = this.index;
     this.stylePara(start, end, {
+      namedStyleType: "HEADING_3",
       spaceAbove: { magnitude: 10, unit: "PT" },
       spaceBelow: { magnitude: 4, unit: "PT" },
-    }, "spaceAbove,spaceBelow");
+    }, "namedStyleType,spaceAbove,spaceBelow");
     this.styleText(start, end - 1, {
       bold: true, fontSize: { magnitude: 12, unit: "PT" },
       foregroundColor: { color: { rgbColor: C.h3 } },
@@ -467,8 +469,8 @@ function renderBlocks(builder: DocBuilder, blocks: Block[], firstBlock = false) 
     const pbk = isFirst;
     isFirst = false;
     switch (b.type) {
-      case "h1": builder.addBanner(b.text, C.h1bg, 16, 16, pbk); break;
-      case "h2": builder.addBanner(b.text, C.h2bg, 13, 12, pbk); break;
+      case "h1": builder.addBanner(b.text, C.h1bg, 16, 16, pbk, 1); break;
+      case "h2": builder.addBanner(b.text, C.h2bg, 13, 12, pbk, 2); break;
       case "h3": builder.addH3(b.text); break;
       case "bullet": {
         const segs = parseInline(b.text);
