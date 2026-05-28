@@ -2,18 +2,33 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { google } from "googleapis";
 
-// ─── Google auth via service account ─────────────────────────────────────────
+// ─── Google auth: service account JSON or OAuth2 refresh token ───────────────
 function getAuth() {
+  // Option A: service account JSON (if org policy allows)
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON não configurado");
-  const credentials = JSON.parse(raw);
-  return new google.auth.GoogleAuth({
-    credentials,
-    scopes: [
-      "https://www.googleapis.com/auth/documents",
-      "https://www.googleapis.com/auth/drive",
-    ],
-  });
+  if (raw) {
+    const credentials = JSON.parse(raw);
+    return new google.auth.GoogleAuth({
+      credentials,
+      scopes: [
+        "https://www.googleapis.com/auth/documents",
+        "https://www.googleapis.com/auth/drive",
+      ],
+    });
+  }
+
+  // Option B: OAuth2 refresh token
+  const clientId     = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error(
+      "Configure GOOGLE_SERVICE_ACCOUNT_JSON ou (GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET + GOOGLE_REFRESH_TOKEN)"
+    );
+  }
+  const oauth2 = new google.auth.OAuth2(clientId, clientSecret);
+  oauth2.setCredentials({ refresh_token: refreshToken });
+  return oauth2;
 }
 
 // ─── Brand colors (hex without #) ────────────────────────────────────────────

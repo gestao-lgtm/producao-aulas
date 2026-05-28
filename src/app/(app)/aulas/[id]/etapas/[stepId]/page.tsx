@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Sparkles, CheckCircle, XCircle, RotateCcw, ChevronLeft,
-  FileText, Check, Loader2, Clock, Download, MessageSquare, History, FileDown
+  FileText, Check, Loader2, Clock, Download, MessageSquare, History, FileDown, ExternalLink
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -66,6 +66,7 @@ export default function StepExecutionPage() {
   const [feedback, setFeedback] = useState({ whatIsWrong: "", whatToChange: "", examples: "" });
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [aiConfig, setAiConfig] = useState<{ provider: string; model: string; temperature: number } | null>(null);
+  const [isExportingGdocs, setIsExportingGdocs] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/ai-config")
@@ -240,6 +241,24 @@ export default function StepExecutionPage() {
     }
   };
 
+  const handleOpenGdocs = async () => {
+    setIsExportingGdocs(true);
+    try {
+      const res = await fetch(`/api/export/gdocs/${params.stepId}`);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        toast.error(j.error ?? "Erro ao exportar para Google Docs.");
+        return;
+      }
+      const { url } = await res.json();
+      window.open(url, "_blank");
+    } catch {
+      toast.error("Erro de conexão ao exportar para Google Docs.");
+    } finally {
+      setIsExportingGdocs(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="pt-16 flex items-center justify-center h-64">
@@ -327,7 +346,15 @@ export default function StepExecutionPage() {
                     Gera o documento formatado no padrão TI TOTAL a partir da teoria aprovada.
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap justify-center">
+                  <Button
+                    className="gap-2 bg-green-700 hover:bg-green-800 text-white"
+                    onClick={handleOpenGdocs}
+                    disabled={isExportingGdocs}
+                  >
+                    {isExportingGdocs ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+                    {isExportingGdocs ? "Criando documento..." : "Abrir no Google Docs"}
+                  </Button>
                   <Button
                     className="gap-2"
                     onClick={() => {
@@ -449,6 +476,14 @@ export default function StepExecutionPage() {
                     {step.stepKey === "PADRONIZACAO_EDITORIAL" && (
                       <>
                       <Button
+                        size="sm" className="gap-1.5 h-7 text-xs bg-green-700 hover:bg-green-800 text-white"
+                        onClick={handleOpenGdocs}
+                        disabled={isExportingGdocs}
+                      >
+                        {isExportingGdocs ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
+                        {isExportingGdocs ? "Criando..." : "Google Docs"}
+                      </Button>
+                      <Button
                         size="sm" className="gap-1.5 h-7 text-xs bg-blue-700 hover:bg-blue-800 text-white"
                         onClick={() => {
                           const a = document.createElement("a");
@@ -458,7 +493,7 @@ export default function StepExecutionPage() {
                         }}
                       >
                         <FileDown className="h-3 w-3" />
-                        Baixar DOCX
+                        DOCX
                       </Button>
                       <Button
                         size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
@@ -470,7 +505,7 @@ export default function StepExecutionPage() {
                         }}
                       >
                         <FileDown className="h-3 w-3" />
-                        Baixar PDF
+                        PDF
                       </Button>
                       </>
                     )}
