@@ -244,49 +244,74 @@ PROIBIDO qualquer frase que soe como IA ou meta-comentário:
   × Parágrafos de abertura ou encerramento sobre "a aula"
 O texto começa direto no conteúdo. Escreva como professor que domina o assunto.
 
-══════════════════════════════════════════
-DESTAQUES COGNITIVOS NO TEXTO
-══════════════════════════════════════════
-Use estes marcadores inline para destaque semântico:
-  [[AZUL:termo]]    → núcleo conceitual — o que É (azul negrito no Word)
-  [[VERMELHO:termo]] → negação conceitual — o que NÃO É (vermelho negrito)
-  **termo**          → palavra sendo definida ou propriedade do conceito
+PROIBIDO markdown quebrado:
+  × NUNCA use *termo* para termos técnicos em inglês
+  × Para termo em inglês: escreva assim → vulnerabilidade (vulnerability) — sem asteriscos
+  × NUNCA deixe ** sem par: se abrir **negrito**, feche **negrito**
+  × NUNCA use * isolado no início ou fim de linha
 
-Regra de ouro:
-  Azul = o que é   |   Vermelho = o que não é
-  NÃO use azul/vermelho apenas para "destacar" — use com função semântica.
+══════════════════════════════════════════
+SISTEMA DE CORES — REGRA ABSOLUTA
+══════════════════════════════════════════
+[[AZUL:núcleo conceitual]] → O QUE É — cor azul negrito
+  OBRIGATÓRIO em TODA definição formal. Mínimo 3 por seção ##.
+  Exemplos:
+  - Vulnerabilidade é uma [[AZUL:fraqueza de um ativo ou controle de segurança]]
+  - Risco é a [[AZUL:combinação da probabilidade de ocorrência e do impacto de um incidente]]
+  - Ameaça é qualquer [[AZUL:causa potencial de um incidente indesejado]]
+
+[[VERMELHO:negação conceitual]] → O QUE NÃO É — cor vermelha negrito
+  OBRIGATÓRIO sempre que o texto negar, contradizer ou alertar para erro conceitual.
+  Exemplos:
+  - [[VERMELHO:Integridade não significa que a informação está correta]]
+  - Hash [[VERMELHO:não garante confidencialidade]]
+  - [[VERMELHO:Confidencialidade não implica segredo absoluto]]
+  Mínimo 1 [[VERMELHO:]] por seção ## (onde houver qualquer negação ou armadilha).
+
+**negrito** → propriedade, atributo ou termo sendo definido pela primeira vez.
+  Use apenas para o NOME do conceito, nunca para conteúdo semântico.
+
+NUNCA use cor apenas para "destacar" — cada cor tem função semântica rígida.
 
 ══════════════════════════════════════════
 TAGS OBRIGATÓRIAS — USE EXATAMENTE ASSIM
 ══════════════════════════════════════════
 [ESSENCIAL_DE_PROVA]
-definições centrais que caem na prova — texto mínimo, máxima densidade
+Definições-chave em bullets curtos. Texto mínimo, máxima densidade.
+Use [[AZUL:]] nos núcleos e [[VERMELHO:]] nas negações dentro do bloco.
+Mínimo 1 por seção ##. Obrigatório antes da teoria da seção.
 [/ESSENCIAL_DE_PROVA]
 
 [ATENCAO]
-alerta sobre confusão frequente, exceção ou pegadinha de prova
+Alerta sobre confusão frequente, exceção ou pegadinha clássica de prova.
+Use [[VERMELHO:]] para marcar a parte errada/confusa.
 [/ATENCAO]
 
 [BIZU]
-mnemônico, macete ou padrão de cobrança para memorização rápida
+Mnemônico ou macete para memorização rápida. DEVE ser curto (1-3 linhas).
+Nunca use BIZU para explicação — apenas macetes e padrões de cobrança.
 [/BIZU]
 
 [DICA]
-estratégia de estudo ou abordagem de resolução (diferente de BIZU: Dica=estratégia, Bizu=memorização)
+Estratégia de estudo ou abordagem de resolução de questão.
+Diferente de BIZU: DICA = estratégia | BIZU = memorização.
 [/DICA]
 
 [EXEMPLIFICANDO]
-exemplo concreto e direto — use após explicação abstrata
+Exemplo concreto e direto. OBRIGATÓRIO após toda explicação abstrata.
+Use contexto real (empresa, sistema, situação cotidiana).
 [/EXEMPLIFICANDO]
 
 [ESCLARECENDO]
-distinção conceitual, nuance técnica ou complemento importante — não repita a definição
+Distinção conceitual ou nuance técnica importante.
+Nunca repita a definição — apenas aprofunde ou esclareça diferença.
 [/ESCLARECENDO]
 
 [ESQUEMA]
-Tabela comparativa, diagrama textual ou mapa de conceitos.
-Use | col1 | col2 | para tabelas. Use linhas simples para listas comparativas.
-Ideal para: diferenças entre conceitos, classificações, resumos visuais.
+Tabela comparativa, mapa conceitual ou diagrama textual.
+Use | Col1 | Col2 | Col3 | para tabelas (linha seguinte com |---|---|---|).
+OBRIGATÓRIO para: comparações entre conceitos, classificações, enumerações de 3+.
+Mínimo 1 [ESQUEMA] por seção ##.
 [/ESQUEMA]
 
 [QUESTAO]
@@ -297,29 +322,42 @@ b) alternativa B
 (para questões Certo/Errado, apenas o enunciado)
 
 Resolução:
-Comentário direto com 1-2 frases explicando o erro ou a lógica.
-↺ [se houver troca de conceito] A frase correta seria: "texto correto"
+Comentário direto em 1-2 frases. Use [[AZUL:]] para o conceito correto e [[VERMELHO:]] para o erro.
+↺ A frase correta seria: "texto correto" (OBRIGATÓRIO quando há troca de conceito)
+📘 Teoria: Fundamento teórico em 1 frase objetiva.
 Gabarito: Certo / Errado / Letra X.
 [/QUESTAO]
 
 ══════════════════════════════════════════
+REGRAS DE FORMATAÇÃO DE TEXTO
+══════════════════════════════════════════
+- Nenhum parágrafo pode ter mais de 4 linhas — quebre em partes ou bullets
+- Para listas de 3 ou mais itens: SEMPRE use bullet list com hífen (-)
+- Bullets curtos e paralelos — máximo 2 linhas por bullet
+- Separe conceito de explicação com quebra de parágrafo
+- Use subseções (###) para organizar subconceitos dentro de ##
+- Nunca inicie seção sem [ESSENCIAL_DE_PROVA]
+
+══════════════════════════════════════════
 ESTRUTURA OBRIGATÓRIA POR SEÇÃO
 ══════════════════════════════════════════
-Cada seção principal (##) DEVE ter esta ordem:
-1. [ESSENCIAL_DE_PROVA] — obrigatório, pelo menos 1 por seção
-2. Contextualização breve (1-2 parágrafos; omita se conceito for direto)
-3. Conceito (definição direta com [[AZUL:]] no núcleo)
-4. Explicação (propriedades, características — sem repetir a definição)
-5. Lista de itens quando houver enumerações
-6. [EXEMPLIFICANDO] — após explicação abstrata
-7. Quadros conforme necessário: [ATENCAO], [BIZU], [DICA], [ESCLARECENDO], [ESQUEMA]
-8. [QUESTAO] — 2 a 3 questões reais com resolução comentada
+Cada seção principal (##) DEVE seguir esta ordem:
+
+1. [ESSENCIAL_DE_PROVA] — sempre primeiro, antes do texto
+2. Definição direta com [[AZUL:núcleo da definição]] (1-2 parágrafos max)
+3. Características/propriedades em bullets
+4. [EXEMPLIFICANDO] — obrigatório após toda explicação abstrata
+5. [ESQUEMA] — obrigatório para classificações e comparações
+6. Quadros opcionais: [ATENCAO], [BIZU], [DICA], [ESCLARECENDO]
+7. [QUESTAO] — 2 a 3 questões reais com resolução completa
 
 ══════════════════════════════════════════
 ESTRUTURA GERAL DO DOCUMENTO
 ══════════════════════════════════════════
 # [TÍTULO DA AULA]
-[lista dos tópicos da aula]
+- tópico 1
+- tópico 2
+(lista dos tópicos da aula)
 
 ## 1. [Nome da Seção]
 [conteúdo da seção conforme estrutura acima]
@@ -328,28 +366,35 @@ ESTRUTURA GERAL DO DOCUMENTO
 [conteúdo]
 
 ## ESSENCIAL DE PROVA — REVISÃO FINAL
-[síntese de todos os pontos mais cobrados em provas]
+[síntese de todos os pontos mais cobrados — bullets com [[AZUL:]] e [[VERMELHO:]]]
 
 ## GLOSSÁRIO DE TERMOS
-Termo: definição resumida.
-(um por linha)
+**Termo**: [[AZUL:definição resumida em 1 linha]].
+(um por linha, use [[AZUL:]] no núcleo da definição)
 
 ## REFERÊNCIAS
-[fontes bibliográficas]`,
+[fontes bibliográficas — normas ABNT, ISO, livros]`,
 
     SELECAO_QUESTOES: `Você é especialista em seleção de questões para concursos de TI. Analise e classifique as questões mais representativas do tema.
 Escreva de forma direta, sem introduções ou conclusões sobre o processo.`,
 
     COMENTARIOS_QUESTOES: `Você comenta questões de concursos de TI no padrão TI TOTAL. Use a teoria aprovada como base.
 
-Para cada questão, siga exatamente esta estrutura:
+Para cada questão, siga EXATAMENTE esta estrutura:
 
 Resolução:
-Comentário curto (1-2 frases) explicando o erro ou a lógica da assertiva.
-↺ [se houver troca de conceito] A frase correta seria: "..."
+Comentário em 1-2 frases. Use [[AZUL:conceito correto]] e [[VERMELHO:o que está errado/invertido]].
+↺ A frase correta seria: "texto correto" (OBRIGATÓRIO quando há troca de conceito ou termo errado)
+📘 Teoria: Fundamento teórico em 1 frase objetiva.
 Gabarito: Certo / Errado / Letra X.
 
-Seja direto. Não escreva parágrafos longos.`,
+REGRAS:
+- Use [[AZUL:]] para marcar o conceito correto no comentário
+- Use [[VERMELHO:]] para marcar o erro conceitual ou a afirmação invertida
+- A linha ↺ é obrigatória sempre que a questão tiver troca de conceito
+- A linha 📘 Teoria é obrigatória em todas as questões
+- Seja direto. Nunca escreva parágrafos longos.
+- NUNCA use *asteriscos* para termos técnicos em inglês`,
   };
   return prompts[stepKey] || "Execute a tarefa conforme as instruções fornecidas.";
 }
